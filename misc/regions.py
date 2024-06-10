@@ -3,6 +3,10 @@ import sys, re
 import svgpathtools
 
 
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 800
+
+
 def svgpath_minimal(path : svgpathtools.path.Path):
 	mx, Mx, my, My = path.bbox()
 	return complex(mx, my)
@@ -13,10 +17,6 @@ def svgpath_maximal(path : svgpathtools.path.Path):
 	return complex(Mx, My)
 
 
-def svgpath_normalize(path : svgpathtools.path.Path):
-	return path.translated(-svgpath_minimal(path))
-
-
 def svgpath_flip_vertical(path : svgpathtools.path.Path):
 	M = svgpath_maximal(path)
 	for i, line in enumerate(path):
@@ -25,6 +25,24 @@ def svgpath_flip_vertical(path : svgpathtools.path.Path):
 		path[i] = svgpathtools.path.Line(
 			complex(sr, M.imag - si), complex(er, M.imag - ei))
 	return path
+
+
+def svgpath_normalize(path : svgpathtools.path.Path):
+	return path.translated(-svgpath_minimal(path))
+
+
+def svgpath_fit_size(path : svgpathtools.path.Path, width, height):
+	mx, Mx, my, My = path.bbox()
+	sx = width / (Mx - mx)
+	sy = height / (My - my)
+	return path.scaled(min(sx, sy))
+
+
+def svgpath_center(path : svgpathtools.path.Path, width, height):
+	mx, Mx, my, My = path.bbox()
+	x = (width - (Mx - mx)) / 2
+	y = (height - (My - my)) / 2
+	return path.translated(complex(x - mx, y - my))
 
 
 class Path:
@@ -41,17 +59,17 @@ class Path:
 	def path(self):
 		if not self._path:
 			self._path = svgpathtools.parse_path(self.d)
-			# self._path = self._path.scaled(10.0)
-
-			self._path = svgpath_normalize(self._path)
 			self._path = svgpath_flip_vertical(self._path)
-
-			M = svgpath_maximal(self._path)
-			fr = 800 / M.real
-			fi = 640 / M.imag
-			self._path = self._path.scaled(min(fr, fi))
-
 		return self._path
+
+	def normalize(self):
+		self._path = svgpath_normalize(self.path)
+
+	def fit(self, width, height):
+		self._path = svgpath_fit_size(self.path, width, height)
+
+	def center(self, width, height):
+		self._path = svgpath_center(self.path, width, height)
 
 	@classmethod
 	def iter(cls, text):
@@ -68,6 +86,10 @@ class Path:
 			d = m.group(1)
 
 			yield cls(id, d)
+
+	@classmethod
+	def sorted(cls, paths):
+		return sorted(paths, key = lambda path: path.id)
 
 	@classmethod
 	def find(cls, text, id):
@@ -97,87 +119,19 @@ class Path:
 			yield y
 
 
-def write_to_nodefile(path, file = sys.stdout):
-	# For use with <http://www.cs.cmu.edu/~quake/triangle.html>
-	# But it turns out that Kivy has a tesselator, too.
-
-	pp = tuple(path.points)
-
-	print(len(pp), 2, 0, 0)
-	for i, p in enumerate(pp, start = 1):
-		file.write(f'{i} {p[0]} {p[1]}\n')
-
-	print(len(pp) - 1, 0)
-	for i in range(1, len(pp) + 1):
-		file.write(f'{i} {i + 1}\n')
-
-
-def iter_meshes(path):
-	from kivy.graphics.tesselator import Tesselator
-	from kivy.graphics import Mesh
-
-	tess = Tesselator()
-	tess.add_contour(tuple(path.contour))
-
-	ok = tess.tesselate()
-	assert ok
-
-	for vertices, indices in tess.meshes:
-		yield Mesh(
-			vertices = vertices,
-			indices = indices,
-			mode = "triangle_fan"
-		)
-
-def show_meshes(meshes):
-	from kivy.config import Config
-	Config.set('graphics', 'width', 800)
-	Config.set('graphics', 'height', 640)
-
-	from kivy.app import App
-	from kivy.uix.widget import Widget
-	from kivy.graphics import Color
-
-	class MyApp(App):
-		def build(self):
-			widget = Widget()
-			# with widget.canvas:
-				# Color(1, 1, 1)
-				# Rectangle(pos = (10, 10), size = (100, 100))
-			widget.canvas.add(Color(.8, .8, .3))
-			for mesh in meshes:
-				widget.canvas.add(mesh)
-			return widget
-
-	MyApp().run()
-
-
-def show_region(file, id):
-	path = Path.find(file.read(), id)
-	# print(path)
-	meshes = iter_meshes(path)
-	# print(meshes)
-	show_meshes(meshes)
-
-
 def show_paths(file):
-	paths = tuple(Path.iter(file.read()))
-
 	from kivy.config import Config
-	Config.set('graphics', 'width', 1200)
-	Config.set('graphics', 'height', 800)
+	Config.set('graphics', 'width', SCREEN_WIDTH)
+	Config.set('graphics', 'height', SCREEN_HEIGHT)
 
 	from kivy.app import App
 	from kivy.uix.boxlayout import BoxLayout
-	from kivy.uix.screenmanager import ( ScreenManager, Screen,
-		FallOutTransition, NoTransition )
+	from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 	from kivy.uix.widget import Widget
 	from kivy.uix.label import Label
 	from kivy.uix.button import Button
-	from kivy.graphics import Color, Rectangle
-
+	from kivy.graphics import Color, Rectangle, Mesh
 	from kivy.graphics.tesselator import Tesselator
-	from kivy.graphics import Mesh
 
 
 	class RegionWidget(BoxLayout):
@@ -185,18 +139,44 @@ def show_paths(file):
 		def __init__(self, path):
 			super().__init__()
 
-			# self.add_widget(Label(text = text))
+			self.margin = 16
+			self.update_method = 1
 
-			self.tess = Tesselator()
-			self.tess.add_contour(tuple(path.contour))
-			ok = self.tess.tesselate()
-			assert ok
+			self.path = path
+			# self.path.normalize()
+			# self.path.fit(self.width - self.margin, self.height - self.margin)
+			# self.path.center(self.width, self.height)
 
+			self.draw_background()
+
+			if self.update_tesselator():
+				self.draw_meshes()
+
+			# self.bind(pos = self.update, size = self.update)
+			self.bind(size = self.update)
+
+		@property
+		def meshes(self):
+			return [c for c in self.canvas.children if isinstance(c, Mesh)]
+
+		def draw_background(self):
 			with self.canvas:
 				Color(1, 1, 1, .3)
 				self.bg = Rectangle(pos = self.pos, size = self.size)
-				Color(.8, .8, .3)
 
+		def update_background(self):
+			self.bg.pos = self.pos
+			self.bg.size = self.size
+
+		def clear_meshes(self):
+			# FIXME: This assumes that no other meshes exist in the
+			#	canvas other than the ones we've added.
+			for m in self.meshes:
+				self.canvas.remove(m)
+
+		def draw_meshes(self):
+			with self.canvas:
+				Color(.8, .8, .3)
 				for vertices, indices in self.tess.meshes:
 					Mesh(
 						vertices = vertices,
@@ -204,25 +184,53 @@ def show_paths(file):
 						mode = "triangle_fan"
 					)
 
-			self.bind(pos = self.update, size = self.update)
+		def update_tesselator(self):
+			tess = Tesselator()
+			tess.add_contour(tuple(self.path.contour))
+			if tess.tesselate():
+				self.tess = tess
+				return self.tess
+
+		def update_meshes(self):
+			# FIXME: This assumes that the meshes are all present
+			#	in the exact order in which they had been added.
+			# FIXME: Another assumption is that the previous Tesselator
+			#	will be quietly released and garbage collected.
+
+			vv_ii = self.tess.meshes
+			mm = self.meshes
+
+			for i, m in enumerate(mm):
+				vv, ii = vv_ii[i]
+				m.vertices = vv
+				m.indices = ii
 
 		def update(self, *aa):
-			self.bg.pos = self.pos
-			self.bg.size = self.size
+			self.path.fit(self.width - self.margin, self.height - self.margin)
+			self.path.center(self.width, self.height)
+
+			if self.update_tesselator():
+
+				if self.update_method == 1:
+					self.canvas.clear()
+					self.draw_background()
+					self.draw_meshes()
+
+				elif self.update_method == 2:
+					self.update_background()
+					self.clear_meshes()
+					self.draw_meshes()
+
+				elif self.update_method == 3:
+					self.update_background()
+					self.update_meshes()
 
 
 	class MyApp(App):
 		def build(self):
-			with open('regions.svg') as file:
-				paths = tuple(Path.iter(file.read()))
-
-			view = BoxLayout(orientation = 'vertical')
-
-			tabs = BoxLayout(orientation = 'horizontal',
-				size_hint = (1, None), height = 30)
-
-			# sm = ScreenManager(transition = NoTransition())
-			sm = ScreenManager(transition = FallOutTransition())
+			view = BoxLayout()
+			tabs = BoxLayout(orientation = 'vertical', size_hint = (.3, 1))
+			sm = ScreenManager(transition = FadeTransition(duration = 0))
 
 			view.add_widget(tabs)
 			view.add_widget(sm)
@@ -243,19 +251,9 @@ def show_paths(file):
 				tabs.add_widget(mkbtn(text))
 				sm.add_widget(mkscr(text, path))
 
-			for path in paths:
-				addscr(path.id, path)
-
-
-			# def on_tabs_resize(self, size):
-			# 	with self.canvas.before:
-			# 		Color(1, 1, 1)
-			# 		Rectangle(pos = self.pos, size = self.size)
-			# tabs.bind(size = on_tabs_resize)
-
-			# widget.canvas.add(Color(.8, .8, .3))
-			# for mesh in meshes:
-			# 	widget.canvas.add(mesh)
+			with open('regions.svg') as file:
+				for path in Path.sorted(Path.iter(file.read())):
+					addscr(path.id, path)
 
 			return view
 
@@ -263,21 +261,5 @@ def show_paths(file):
 
 
 if __name__ == '__main__':
-
 	with open('regions.svg') as file:
 		show_paths(file)
-		exit()
-
-		show_region(file, 'Srem')
-		exit()
-
-		text = file.read()
-
-	path = Path.find(text, 'Beograd')
-	# print(path)
-
-	# write_to_nodefile(path)
-	meshes = iter_meshes(path)
-	# print(meshes)
-
-	show_meshes(meshes)
