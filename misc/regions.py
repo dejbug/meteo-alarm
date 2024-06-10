@@ -226,7 +226,7 @@ def show_paths(file):
 					self.update_meshes()
 
 
-	class MyApp(App):
+	class MeteoAlarmApp(App):
 		def build(self):
 			view = BoxLayout()
 			tabs = BoxLayout(orientation = 'vertical', size_hint = (.3, 1))
@@ -257,7 +257,7 @@ def show_paths(file):
 
 			return view
 
-	MyApp().run()
+	MeteoAlarmApp().run()
 
 
 if __name__ == '__main__':
