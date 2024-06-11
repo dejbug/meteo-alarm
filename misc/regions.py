@@ -133,6 +133,8 @@ def show_paths(file):
 	from kivy.graphics import Color, Rectangle, Mesh
 	from kivy.graphics.tesselator import Tesselator
 
+	from kivy.graphics.context_instructions import PushMatrix, PopMatrix
+	from kivy.graphics.context_instructions import Translate, Scale, Rotate
 
 	class RegionWidget(BoxLayout):
 
@@ -140,31 +142,44 @@ def show_paths(file):
 			super().__init__()
 
 			self.margin = 16
-			self.update_method = 1
+			self.update_method = 3
 
 			self.path = path
 			# self.path.normalize()
 			# self.path.fit(self.width - self.margin, self.height - self.margin)
 			# self.path.center(self.width, self.height)
 
-			self.draw_background()
+			self.visible = False
 
-			if self.update_tesselator():
-				self.draw_meshes()
+			self.bg = None
+			self.meshes = []
+			self.scale = None
 
 			# self.bind(pos = self.update, size = self.update)
 			self.bind(size = self.update)
 
-		@property
-		def meshes(self):
-			return [c for c in self.canvas.children if isinstance(c, Mesh)]
+		# @property
+		# def meshes(self):
+			# return [c for c in self.canvas.children if isinstance(c, Mesh)]
 
 		def draw_background(self):
 			with self.canvas:
 				Color(1, 1, 1, .3)
 				self.bg = Rectangle(pos = self.pos, size = self.size)
+				Color(1, 0, 0)
+
+				# OBSOLETE: Ignore this. Just testing...
+				if False:
+					PushMatrix()
+					Scale(x = 10., y = 10., origin = (15, 15))
+					Translate(30, 30)
+					Rotate(angle = 45, axis = (0, 0, 1), origin = (15, 15))
+					Rectangle(pos = (10, 10), size = (20, 20))
+					PopMatrix()
 
 		def update_background(self):
+			if not self.bg:
+				self.draw_background()
 			self.bg.pos = self.pos
 			self.bg.size = self.size
 
@@ -173,16 +188,25 @@ def show_paths(file):
 			#	canvas other than the ones we've added.
 			for m in self.meshes:
 				self.canvas.remove(m)
+			self.meshes = []
 
 		def draw_meshes(self):
 			with self.canvas:
+				PushMatrix()
+				self.scale = Scale(x = .5, y = .5, origin = self.center)
+
+				assert len(self.meshes) == 0
+
 				Color(.8, .8, .3)
 				for vertices, indices in self.tess.meshes:
-					Mesh(
+					m = Mesh(
 						vertices = vertices,
 						indices = indices,
 						mode = "triangle_fan"
 					)
+					self.meshes.append(m)
+
+				PopMatrix()
 
 		def update_tesselator(self):
 			tess = Tesselator()
@@ -192,20 +216,32 @@ def show_paths(file):
 				return self.tess
 
 		def update_meshes(self):
-			# FIXME: This assumes that the meshes are all present
-			#	in the exact order in which they had been added.
-			# FIXME: Another assumption is that the previous Tesselator
-			#	will be quietly released and garbage collected.
+			if not self.meshes:
+				self.draw_meshes()
 
-			vv_ii = self.tess.meshes
-			mm = self.meshes
+			# The first RegionWidget will be made visible when its
+			#	window size is not yet determined (and defaults to
+			#	[100, 100]). This means that we need to keep a ref
+			#	to our scaling matrix so we can update its origin.
+			#	Relevant only to update_method == 3.
+			assert self.scale
+			self.scale.origin = self.center
 
-			for i, m in enumerate(mm):
-				vv, ii = vv_ii[i]
-				m.vertices = vv
-				m.indices = ii
+			# TODO: This method assumes that the previous Tesselator
+			#	will be quietly released and garbage collected,
+			#	otherwise we'll leak resources.
+			# NOTE: This method is called after update_tesselator(),
+			#	and the vv and ii of tess.meshes are memoryviews.
+			assert len(self.meshes) == len(self.tess.meshes)
+			for m, vv_ii in zip(self.meshes, self.tess.meshes):
+				m.vertices = vv_ii[0]
+				m.indices = vv_ii[1]
 
 		def update(self, *aa):
+			# print('%20s' % self.path.id, f'{int(self.width):4} {int(self.height):4}', 'UPDATE' if self.visible else '')
+
+			if not self.visible: return
+
 			self.path.fit(self.width - self.margin, self.height - self.margin)
 			self.path.center(self.width, self.height)
 
@@ -213,6 +249,7 @@ def show_paths(file):
 
 				if self.update_method == 1:
 					self.canvas.clear()
+					self.meshes = []
 					self.draw_background()
 					self.draw_meshes()
 
@@ -227,10 +264,15 @@ def show_paths(file):
 
 
 	class MeteoAlarmApp(App):
+
+		def on_screen_activate(self, sm, name):
+			sm.get_screen(name).children[0].visible = True
+
 		def build(self):
 			view = BoxLayout()
 			tabs = BoxLayout(orientation = 'vertical', size_hint = (.3, 1))
 			sm = ScreenManager(transition = FadeTransition(duration = 0))
+			sm.bind(current = self.on_screen_activate)
 
 			view.add_widget(tabs)
 			view.add_widget(sm)
