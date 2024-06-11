@@ -8,7 +8,7 @@ The main purpose of this project is to give me something to do while getting to 
 
 ## 2024-06-11
 
-Naturally I'm thinking about delegating run-time things to the compile-time. to wit: extraction of the SVG path ids and vertices needs be done but once. Morover will I have to get rid of the `svgpathtools` dependency. Turns out I can do my polygon scaling with modelview matrix transformations in pure Kivy. (Alternatively, I could do some manual matrix arithmetics on a mesh itself.) Centering would then be doable by iterating on `mesh.vertices` instead. All this means that `svgpathtools` will be relegated to a dev-time dependency at worst.
+Naturally I'm thinking about delegating run-time things to the compile-time. To wit: extraction of the SVG path ids and vertices needs be done but once. Moreover will I have to get rid of the [svgpathtools](https://pypi.org/project/svgpathtools/) dependency. Turns out I can do my polygon scaling with modelview matrix transformations in pure Kivy. (Alternatively, I could do some manual matrix arithmetics on a mesh itself.) Centering would then be doable by iterating on `mesh.vertices` instead. All this means that `svgpathtools` will be relegated to a dev-time dependency at worst.
 
 
 ## 2024-06-10
