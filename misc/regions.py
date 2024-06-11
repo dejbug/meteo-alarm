@@ -130,6 +130,7 @@ def show_paths(file):
 	from kivy.uix.widget import Widget
 	from kivy.uix.label import Label
 	from kivy.uix.button import Button
+	from kivy.uix.slider import Slider
 	from kivy.graphics import Color, Rectangle, Mesh
 	from kivy.graphics.tesselator import Tesselator
 
@@ -149,14 +150,32 @@ def show_paths(file):
 			# self.path.fit(self.width - self.margin, self.height - self.margin)
 			# self.path.center(self.width, self.height)
 
+			# We defer all drawing to self.update() which will
+			#	do nothing if self.visible is False.
 			self.visible = False
 
 			self.bg = None
 			self.meshes = []
 			self.scale = None
 
+			# TODO: We need this so we can set the scaling even
+			#	before the first time we draw anything (which is
+			#	when self.scale will be initialized).
+			self._scale_factor = 1.
+
 			# self.bind(pos = self.update, size = self.update)
 			self.bind(size = self.update)
+
+		@property
+		def scale_factor(self):
+			return self._scale_factor
+
+		@scale_factor.setter
+		def scale_factor(self, value):
+			self._scale_factor = value
+			if self.scale:
+				self.scale.x = self.scale.y = value
+
 
 		# @property
 		# def meshes(self):
@@ -191,11 +210,17 @@ def show_paths(file):
 			self.meshes = []
 
 		def draw_meshes(self):
+			assert len(self.meshes) == 0
+
 			with self.canvas:
 				PushMatrix()
-				self.scale = Scale(x = .5, y = .5, origin = self.center)
 
-				assert len(self.meshes) == 0
+				# TODO: How do we pre-create a canvas command
+				#	and simply add it to the canvas here? Here,
+				#	this would allow us to remove self.scale_factor.
+				self.scale = Scale(
+					x = self.scale_factor, y = self.scale_factor,
+					origin = self.center)
 
 				Color(.8, .8, .3)
 				for vertices, indices in self.tess.meshes:
@@ -262,20 +287,68 @@ def show_paths(file):
 					self.update_background()
 					self.update_meshes()
 
+	class MySlider(Slider):
+		def __init__(self, **kk):
+			kk.setdefault('min', .025)
+			kk.setdefault('max', 1.)
+			kk.setdefault('step', .025)
+			kk.setdefault('value', 1.)
+			kk.setdefault('size_hint', (1, None))
+			kk.setdefault('height', 50)
+			super().__init__(**kk)
+
+			with self.canvas:
+				Color(1, 1, 1, .3)
+				self.bg = Rectangle(pos = self.pos, size = self.size)
+
+			self.bind(size = self.update)
+
+		def update(self, *aa, **kk):
+			self.bg.pos = self.pos
+			self.bg.size = self.size
+
 
 	class MeteoAlarmApp(App):
+
+		@property
+		def screen(self):
+			return self.sm.get_screen(self.sm.current)
+
+		@property
+		def region(self):
+			return self.screen.children[0]
+
+		@property
+		def regions(self):
+			for screen in self.sm.screens:
+				yield screen.children[0]
 
 		def on_screen_activate(self, sm, name):
 			sm.get_screen(name).children[0].visible = True
 
+		def on_slider_value_change(self, slider, value):
+			# scale = self.region.scale
+			# if scale: scale.x = scale.y = value
+			for region in self.regions:
+				region.scale_factor = value
+
 		def build(self):
-			view = BoxLayout()
+			view = BoxLayout(orientation = 'vertical')
+			main = BoxLayout(orientation = 'horizontal')
 			tabs = BoxLayout(orientation = 'vertical', size_hint = (.3, 1))
 			sm = ScreenManager(transition = FadeTransition(duration = 0))
 			sm.bind(current = self.on_screen_activate)
 
-			view.add_widget(tabs)
-			view.add_widget(sm)
+			self.slider = MySlider()
+			self.slider.bind(value = self.on_slider_value_change)
+
+			main.add_widget(tabs)
+			main.add_widget(sm)
+
+			view.add_widget(main)
+			view.add_widget(self.slider)
+
+			self.sm = sm
 
 			def mkbtn(text):
 				def on_press(index):
