@@ -366,9 +366,8 @@ def show_paths(file):
 				tabs.add_widget(mkbtn(text))
 				sm.add_widget(mkscr(text, path))
 
-			with open('regions.svg') as file:
-				for path in Path.sorted(Path.iter(file.read())):
-					addscr(path.id, path)
+			for path in Path.sorted(Path.iter(file.read())):
+				addscr(path.id, path)
 
 			return view
 
