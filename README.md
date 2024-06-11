@@ -8,8 +8,11 @@ The main purpose of this project is to give me something to do while getting to 
 
 ## 2024-06-11
 
-Naturally I'm thinking about delegating run-time things to the compile-time. To wit: extraction of the SVG path ids and vertices needs be done but once. Moreover will I have to get rid of the [svgpathtools](https://pypi.org/project/svgpathtools/) dependency. Turns out I can do my polygon scaling with modelview matrix transformations in pure Kivy. (Alternatively, I could do some manual matrix arithmetics on a mesh itself.) Centering would then be doable by iterating on `mesh.vertices` instead. All this means that `svgpathtools` will be relegated to a dev-time dependency at worst.
+Naturally I'm thinking about delegating run-time things to the compile-time. To wit: extraction of the SVG path ids and vertices needs be done but once. Moreover will I have to get rid of the [svgpathtools](https://pypi.org/project/svgpathtools/) run-time dependency. Turns out I can do my polygon scaling with modelview matrix transformations in pure Kivy. (Alternatively, I could do some manual matrix arithmetics on a mesh itself.) Centering would then be doable by iterating on `mesh.vertices` instead. All this means that `svgpathtools` will be relegated to a dev-time dependency at worst.
 
+(In lieu of actually coding, ...) At this point we will have to start considering that the regions will be displayed simultaneously and at various offsets to each other, namely, as a map. This means that normalization, **vertical axis correction**, scaling and so on will no longer be local region operations but global map operations. This should be no problem since in both cases similar considerations apply.
+
+Note on **vertical axis correction**: (SVG has a top-down coordinate system, while Kivy's is bottom-up.) So far we did the calculations manually, hence slowly, vertex-by-vertex in `svgpath_flip_vertical()`. This was before realizing that Kivy exposes the underlying OpenGL semantics i.e. [transformation matrices](http://www.opengl-tutorial.org/beginners-tutorials/tutorial-3-matrices/). The neurotypical way, of course, is simply to scale the thing with a negative value. All this means that, with scaling and translation being covered, vertex-by-vertex operation-wise this leaves us only with normalization. But this too can be handled at dev-time. Nice!
 
 ## 2024-06-10
 
