@@ -203,8 +203,6 @@ def show_paths(file):
 			self.bg.size = self.size
 
 		def clear_meshes(self):
-			# FIXME: This assumes that no other meshes exist in the
-			#	canvas other than the ones we've added.
 			for m in self.meshes:
 				self.canvas.remove(m)
 			self.meshes = []
