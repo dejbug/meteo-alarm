@@ -6,11 +6,13 @@ Config.set('graphics', 'width', SCREEN_WIDTH)
 Config.set('graphics', 'height', SCREEN_HEIGHT)
 
 from kivy.app import App
+from kivy.properties import BooleanProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
 from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, Line, Rectangle, Mesh
 from kivy.graphics.tesselator import Tesselator
@@ -20,8 +22,58 @@ from kivy.graphics.context_instructions import Translate, Scale, Rotate
 
 import sys, json
 
+import random
+
+
+class TriangleColorizer:
+
+	cb_bw = lambda a, b, r: Color(a, 0, b, mode = 'hsv')
+	cb_color = lambda a, b, r: Color(a, b, r)
+
+	def __init__(self, tt, callback = None):
+		self.xx = tuple( len(t['vvv']) for t in tt )
+		self.callback = callback
+		# print(self.xx)
+		self.reset()
+
+	@property
+	def ic(self):
+		return len(self.xx)
+
+	@property
+	def jc(self):
+		if self.i < self.ic:
+			return self.xx[self.i]
+		return 0
+
+	def reset(self):
+		self.i = 0
+		self.j = 0
+
+	def __next__(self):
+		if self.i >= self.ic:
+			return
+
+		if self.j >= self.jc:
+			self.i += 1
+			self.j = 0
+			if self.i >= self.ic:
+				return
+
+		a = self.i / self.ic
+		b = self.j / self.jc
+		self.j += 1
+
+		if not self.callback:
+			return a, b, random.random()
+
+		return self.callback(a, b, random.random())
+
 
 class ViewerWidget(BoxLayout):
+
+	show_triangles = BooleanProperty(defaultvalue = False)
+	show_triangle_colors = BooleanProperty(defaultvalue = False)
 
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
@@ -62,6 +114,7 @@ class ViewerWidget(BoxLayout):
 
 		# self.bind(pos = self.update, size = self.update)
 		self.bind(size = self.update)
+		self.bind(show_triangles = self.update, show_triangle_colors = self.update)
 
 	@property
 	def scale_factor(self):
@@ -116,6 +169,13 @@ class ViewerWidget(BoxLayout):
 				x = self.scale_factor, y = -self.scale_factor,
 				origin = self.scaling_center)
 
+
+			if self.show_triangle_colors:
+				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_color)
+			else:
+				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_bw)
+
+
 			for t in self.tt:
 				# print(t['id'])
 
@@ -125,6 +185,9 @@ class ViewerWidget(BoxLayout):
 					Color(.8, .8, .3)
 
 				for vv, ii in zip(t['vvv'], t['iii']):
+					if self.show_triangles:
+						next(tc)
+
 					m = Mesh(
 						vertices = vv,
 						indices = ii,
@@ -188,8 +251,6 @@ class MySlider(Slider):
 		kk.setdefault('max', 1.)
 		kk.setdefault('step', .025)
 		kk.setdefault('value', 1.)
-		kk.setdefault('size_hint', (1, None))
-		kk.setdefault('height', 50)
 		super().__init__(**kk)
 
 		with self.canvas:
@@ -203,6 +264,49 @@ class MySlider(Slider):
 		self.bg.size = self.size
 
 
+class ControlWidget(BoxLayout):
+
+	def __init__(self, **kk):
+		kk.setdefault('size_hint', (1, None))
+		kk.setdefault('height', '50sp')
+		kk.setdefault('spacing', '8sp')
+		super().__init__(**kk)
+
+		with self.canvas:
+			Color(1, 1, 1, .3)
+			self.bg = Rectangle(pos = self.pos, size = self.size)
+
+		self.bind(size = self.update)
+
+	def update(self, *aa, **kk):
+		self.bg.pos = self.pos
+		self.bg.size = self.size
+
+
+class ColorControlWidget(BoxLayout):
+
+	def __init__(self, viewer, **kk):
+		self.viewer = viewer
+		kk.setdefault('size_hint', (None, 1))
+		kk.setdefault('width', '180sp')
+		super().__init__(**kk)
+
+		self.b1 = Button(text = 'triangles')
+		self.b1.bind(on_press = self.on_b1)
+		self.add_widget(self.b1)
+
+		self.b2 = ToggleButton(text = 'color', disabled = True)
+		self.b2.bind(on_press = self.on_b2)
+		self.add_widget(self.b2)
+
+	def on_b1(self, *aa):
+		self.viewer.show_triangles = not self.viewer.show_triangles
+		self.b2.disabled = not self.viewer.show_triangles
+
+	def on_b2(self, *aa):
+		self.viewer.show_triangle_colors = not self.viewer.show_triangle_colors
+
+
 class ViewerApp(App):
 
 	def on_slider_value_change(self, slider, value):
@@ -214,12 +318,18 @@ class ViewerApp(App):
 
 		self.viewer = ViewerWidget(tt)
 
-		self.slider = MySlider()
-		self.slider.bind(value = self.on_slider_value_change)
+		slider = MySlider()
+		slider.bind(value = self.on_slider_value_change)
 
 		view = BoxLayout(orientation = 'vertical')
+
+		control = ControlWidget()
+		control.add_widget(slider)
+		control.add_widget(ColorControlWidget(self.viewer))
+
 		view.add_widget(self.viewer)
-		view.add_widget(self.slider)
+		view.add_widget(control)
+
 		return view
 
 if __name__ == '__main__':
