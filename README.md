@@ -6,6 +6,22 @@ The main purpose of this project is to give me something to do while getting to 
 
 # Devlog
 
+## 2024-06-12
+
+This is to become a mobile app of course, but I was briefly thinking about mouse-hovering animations which would reduce to [hittesting of arbirary regions](https://en.wikipedia.org/wiki/Point_in_polygon) and I got a bit derailed.
+
+I was thinking: since my regions are already nicely tesellated into triangles this would become a point-in-triangle problem. To speed things up we could check for bounding boxes first. Second, to speed that up, we could use [quadtrees](https://en.wikipedia.org/wiki/Quadtree). I'm not happy with any of this, though.
+
+All of this made me want to see the triangles the Kivy tesselator generated and so I went ahead and added this non-feature, too. It will all have to go.
+
+[![Screencast](https://img.youtube.com/vi/o_XSfDedxq4/maxres2.jpg)](https://www.youtube.com/shorts/o_XSfDedxq4)
+
+In the distant past I used to write some basic UML design software and I figured out that it's much faster to use an [offscreen bitmap](https://learn.microsoft.com/en-us/windows/win32/gdi/memory-device-contexts) and draw the hoverable shapes each in their own color (#000000, #000001, ... interpreted as their id) and simply use [`GetPixel`](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getpixel) at `WM_MOUSEMOVE`. (And yes [I was a teenage Win32 API user](https://www.youtube.com/watch?v=8GLUmIf8STw).) Point is: it was really, really fast! I hadn't expect that at all, this being the GDI and Windows.
+
+I'm not entirely sure how to do that in OpenGL yet, but I'll try to play around with [render-to-texture](http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-14-render-to-texture/) and Kivy's [Framebuffer context](https://kivy.org/doc/stable/api-kivy.graphics.fbo.html). The docs read as if I could access the pixels via `fbo.texture.pixels`.
+
+All this is, as they say, of purely academic value and so maybe I should better stick with the program instead. I wasn't planning on using Kivy for targeting mouse-based systems anyhow.
+
 ## 2024-06-11
 
 Naturally I'm thinking about delegating run-time things to the compile-time. To wit: extraction of the SVG path ids and vertices needs be done but once. Moreover will I have to get rid of the [svgpathtools](https://pypi.org/project/svgpathtools/) run-time dependency. Turns out I can do my polygon scaling with modelview matrix transformations in pure Kivy. (Alternatively, I could do some manual matrix arithmetics on a mesh itself.) Centering would then be doable by iterating on `mesh.vertices` instead. All this means that `svgpathtools` will be relegated to a dev-time dependency at worst.
