@@ -70,42 +70,75 @@ class TriangleColorizer:
 		return self.callback(a, b, random.random())
 
 
+class TtBbox:
+
+	def __init__(self, tt):
+		self.x, self.y, self.X, self.Y = sys.maxsize, sys.maxsize, 0, 0
+		for t in tt:
+			x, y, X, Y = t['bbox']
+			self.x = min(self.x, x)
+			self.y = min(self.y, y)
+			self.X = max(self.X, X)
+			self.Y = max(self.Y, Y)
+
+	def __iter__(self):
+		yield self.x
+		yield self.y
+		yield self.X
+		yield self.Y
+
+	@property
+	def w(self):
+		return self.X - self.x
+
+	@property
+	def h(self):
+		return self.Y - self.y
+
+	@property
+	def c(self):
+		return self.x + self.w / 2, self.y + self.h / 2
+
+	@property
+	def p(self):
+		return self.x, self.y
+
+	@property
+	def s(self):
+		return self.w, self.h
+
+
 class ViewerWidget(BoxLayout):
 
 	show_triangles = BooleanProperty(defaultvalue = False)
 	show_triangle_colors = BooleanProperty(defaultvalue = False)
+	show_background = BooleanProperty(defaultvalue = False)
+
+	def on_size(self, _, size):
+		self.stretch_factor = min(
+			(size[0] - self.margin * 2) / self.bbox.w,
+			(size[1] - self.margin * 2) / self.bbox.h
+		)
+		self.scaling_center = self.bbox.c
+
+		self.xoff = (size[0] - self.bbox.w) / 2
+		self.yoff = (size[1] - self.bbox.h) / 2
 
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
 
 		self.tt = tt
-
-		gx, gy, gX, gY = sys.maxsize, sys.maxsize, 0, 0
-		for t in self.tt:
-			x, y, X, Y = t['bbox']
-			gx = min(gx, x)
-			gy = min(gy, y)
-			gX = max(gX, X)
-			gY = max(gY, Y)
-		self.bbox = [gx, gy, gX, gY]
-		# print(self.bbox)
-
-		self.margin = 32
-
-		self.stretch_factor = min(
-			(SCREEN_WIDTH - self.margin * 2) / (gX - gx),
-			(SCREEN_HEIGHT - self.margin * 2) / (gY - gy)
-		)
-
-		self.scaling_center = (
-			gx + (gX - gx) / 2,
-			gy + (gY - gy) / 2,
-		)
+		self.bbox = TtBbox(self.tt)
 
 		self.meshes = []
 		self.scale = None
 
+		self.margin = 8
 		self.update_method = 1
+
+		self.stretch_factor = 1
+		self.scaling_center = self.center
+		self.xoff, self.yoff = 0, 0
 
 		# TODO: We need this so we can set the scaling even
 		#	before the first time we draw anything (which is
@@ -147,20 +180,13 @@ class ViewerWidget(BoxLayout):
 	def draw_meshes(self):
 		assert len(self.meshes) == 0
 
-		gx, gy, gX, gY = self.bbox
-		gw, gh = gX - gx, gY - gy
-		xoff, yoff = (SCREEN_WIDTH - gw) / 2, (SCREEN_HEIGHT - gh) / 2
-
 		with self.canvas:
 			PushMatrix()
 
-			# Translate(x = -self.bbox[0], y = -self.bbox[1])
-
-			Translate(x = xoff, y = yoff)
+			Translate(x = self.x + self.xoff, y = self.y + self.yoff)
 
 			Scale(x = self.stretch_factor, y = self.stretch_factor,
 				origin = self.scaling_center)
-
 
 			# TODO: How do we pre-create a canvas command
 			#	and simply add it to the canvas here? Here,
@@ -170,11 +196,15 @@ class ViewerWidget(BoxLayout):
 				origin = self.scaling_center)
 
 
+			if self.show_background:
+				Color(1, 1, 1)
+				Rectangle(pos = self.bbox.p, size = self.bbox.s)
+
+
 			if self.show_triangle_colors:
 				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_color)
 			else:
 				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_bw)
-
 
 			for t in self.tt:
 				# print(t['id'])
