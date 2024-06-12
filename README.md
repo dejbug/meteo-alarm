@@ -10,9 +10,7 @@ The main purpose of this project is to give me something to do while getting to 
 
 This is to become a mobile app of course, but I was briefly thinking about mouse-hovering animations which would reduce to [hittesting of arbirary regions](https://en.wikipedia.org/wiki/Point_in_polygon) and I got a bit derailed.
 
-I was thinking: since my regions are already nicely tesellated into triangles this would become a point-in-triangle problem. To speed things up we could check for bounding boxes first. And to speed that up we could use [quadtrees](https://en.wikipedia.org/wiki/Quadtree). I'm not happy with any of this, though.
-
-All of this made me want to see the triangles the Kivy tesselator generated and so I went ahead and added this non-feature, too. It will all have to go.
+I was thinking: since my regions are already nicely tessellated this would become a lesser, point-in-triangle problem. Still, not trivial, but to speed things up we could check for bounding boxes first. And to speed that up we could use [quadtrees](https://en.wikipedia.org/wiki/Quadtree). I'm not entirley happy with any of this, though, but it made me want to look at the triangles the Kivy tesselator generated and so I went ahead and added this non-feature, too. It will all have to go.
 
 [![Screencast](https://img.youtube.com/vi/o_XSfDedxq4/maxres2.jpg)](https://www.youtube.com/shorts/o_XSfDedxq4)
 
@@ -32,7 +30,7 @@ Note on **vertical axis correction**: (SVG has a top-down coordinate system, whi
 
 ## 2024-06-10
 
-The site has a nice looking [country map](https://www.meteoalarm.rs/ciril/meteo_alarm.php) which I wanted to put in the app. The site's map is glued together from a series of gifs representing the country's regions. There are [SVG maps of Serbia](https://commons.wikimedia.org/wiki/File:Statistical_regions_of_Serbia.svg), but none of those look exactly like this one. So I decided to manually trace a screenshot of the map in [Inkskape](https://inkscape.org/). I started by drawing the shared borders first and duplicating them. I had to look up [how to join two paths](https://graphicdesign.stackexchange.com/questions/46294/how-to-join-end-nodes-of-different-paths-in-inkscape#46360), which wasn't obvious at all. Nice, relaxing work this was, all in all.
+This site has a nice looking [country map](https://www.meteoalarm.rs/ciril/meteo_alarm.php) which I wanted to put in the app. The site's map is glued together from a series of gifs representing the country's regions. There are [SVG maps of Serbia](https://commons.wikimedia.org/wiki/File:Statistical_regions_of_Serbia.svg), but none of those look exactly like this one. So I decided to manually trace a screenshot of the map in [Inkskape](https://inkscape.org/). I started by drawing the shared borders first and duplicating them. I had to look up [how to join two paths](https://graphicdesign.stackexchange.com/questions/46294/how-to-join-end-nodes-of-different-paths-in-inkscape#46360), which wasn't obvious at all. Nice, relaxing work this was, all in all.
 
 After vectorizing it the question became how to import it into the framework. Kivy's support for [SVG is experimental](https://kivy.org/doc/stable/api-kivy.graphics.svg.html). Neither does it feature a simple way to draw filled polygons. Kivy being OpenGL-based, it had to be done manually then. This is where I got entangled briefly with a charming little [tesselator](http://www.cs.cmu.edu/~quake/triangle.html), the 2003 winner of the [James Hardy Wilkinson Prize in Numerical Software](https://en.wikipedia.org/wiki/J._H._Wilkinson_Prize_for_Numerical_Software) no less. Eventually I came back to Kivy's own implementation, [experimental as it is](https://kivy.org/doc/stable/api-kivy.graphics.tesselator.html). It's infinitely more simple to use and it's working fine.
 
