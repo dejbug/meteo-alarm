@@ -91,10 +91,11 @@ class BBox:
 
 class ViewerWidget(BoxLayout):
 
-	show_triangles = BooleanProperty(defaultvalue = False)
-	show_triangle_colors = BooleanProperty(defaultvalue = True)
+	show_triangles = BooleanProperty()
+	show_triangle_colors = BooleanProperty()
+	show_region_boundaries = BooleanProperty()
+
 	show_background = BooleanProperty(defaultvalue = False)
-	show_region_boundaries = BooleanProperty(defaultvalue = False)
 
 	def on_size(self, _, size):
 		self.stretch_factor = min(
@@ -301,6 +302,7 @@ class Toggler(CheckBox):
 	def __init__(self, viewer, prop, slave = None, **kk):
 		# kk.setdefault('active', False)
 		# kk.setdefault('disabled', False)
+		kk.setdefault('color', (0, 0, 0, 1))
 		super().__init__(**kk)
 
 		self.viewer = viewer
@@ -309,6 +311,18 @@ class Toggler(CheckBox):
 
 		self.on = kk.setdefault('active', False)
 		self.update_slave()
+
+		with self.canvas.before:
+			self.bg = Color(1, 1, 1, .1)
+			self.rc = Rectangle(pos = self.pos, size = self.size)
+
+		self.bind(disabled = self.update)
+		self.bind(pos = self.update, size = self.update)
+
+	def update(self, *aa):
+		self.bg.a = .1 if self.disabled else .3
+		self.rc.pos = self.x + 8, self.y + 8
+		self.rc.size = self.width - 16, self.height - 16
 
 	def on_press(self, *aa):
 		self.on = not self.on
@@ -335,7 +349,7 @@ class ColorControlWidget(BoxLayout):
 		kk.setdefault('width', '180sp')
 		super().__init__(**kk)
 
-		t = Toggler(self.viewer, 'show_triangle_colors', active = False)
+		t = Toggler(self.viewer, 'show_triangle_colors', active = True)
 		self.add_widget(Toggler(self.viewer, 'show_triangles', t))
 		self.add_widget(t)
 		self.add_widget(Toggler(self.viewer, 'show_region_boundaries'))
