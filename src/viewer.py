@@ -156,7 +156,7 @@ class ViewerWidget(BoxLayout):
 			(size[0] - self.margin * 2) / self.bbox.w,
 			(size[1] - self.margin * 2) / self.bbox.h
 		)
-		self.scaling_center = self.bbox.c
+		self.scale.origin = self.bbox.c
 
 		self.xoff = (size[0] - self.bbox.w) / 2
 		self.yoff = (size[1] - self.bbox.h) / 2
@@ -168,13 +168,12 @@ class ViewerWidget(BoxLayout):
 		self.bbox = TtBbox(self.tt)
 
 		self.meshes = []
-		self.scale = None
+		self.scale = Scale(y = -1)
 
 		self.margin = 8
 		self.update_method = 1
 
 		self.stretch_factor = 1
-		self.scaling_center = self.center
 		self.xoff, self.yoff = 0, 0
 
 		# TODO: We need this so we can set the scaling even
@@ -191,14 +190,12 @@ class ViewerWidget(BoxLayout):
 
 	@property
 	def scale_factor(self):
-		return self._scale_factor
+		return self.scale.x
 
 	@scale_factor.setter
 	def scale_factor(self, value):
-		self._scale_factor = value
-		if self.scale:
-			self.scale.x = value
-			self.scale.y = -value
+		self.scale.x = value
+		self.scale.y = -value
 
 	def draw_background(self):
 		with self.canvas:
@@ -220,23 +217,15 @@ class ViewerWidget(BoxLayout):
 	def draw_meshes(self):
 		assert len(self.meshes) == 0
 
-
-
 		with self.canvas:
 			PushMatrix()
 
 			Translate(x = self.x + self.xoff, y = self.y + self.yoff)
 
 			Scale(x = self.stretch_factor, y = self.stretch_factor,
-				origin = self.scaling_center)
+				origin = self.bbox.c)
 
-			# TODO: How do we pre-create a canvas command
-			#	and simply add it to the canvas here? Here,
-			#	this would allow us to remove self.scale_factor.
-			self.scale = Scale(
-				x = self.scale_factor, y = -self.scale_factor,
-				origin = self.scaling_center)
-
+			self.canvas.add(self.scale)
 
 			if self.show_background:
 				Color(1, 1, 1)
