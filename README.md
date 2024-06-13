@@ -8,6 +8,10 @@ The main purpose of this project is to give me something to do while getting to 
 
 ## 2024-06-13
 
+I must admit, I am still not sure how to best approach the canvas. I've rewritten it so that I'm adding everything to the canvas just once, keeping references to everything that changes. All 'classical drawing' (blitting, really; pixel-bashing) is done by manipulating those references. Think tkinter's canvas; forget GDI raster graphics.
+
+I don't like those references. I'm storing a Color ref for every single triangle. The user toggles a checkbox and I update hundreds at a time. Is this stuff supposed to be done with shaders instead? With textures? And suddenly I find myself having to dig into the underlying OpenGL.
+
 **Q3**: I just realized that (substrings of) some of my function names are dirty words. What is Github's policy on 'dirty' function names in sources and commit messages?
 
 **Q2**: If I (two-way-)bind a BooleanProperty to a CheckBox and vice versa, will it devolve into infinite (mutual) recursion or does Kivy catch this and correct for it?
