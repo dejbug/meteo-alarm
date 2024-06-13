@@ -7,6 +7,7 @@ Config.set('graphics', 'width', SCREEN_WIDTH)
 Config.set('graphics', 'height', SCREEN_HEIGHT)
 
 from kivy.app import App
+from kivy.core.window import Window
 from kivy.properties import BooleanProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.checkbox import CheckBox
@@ -34,7 +35,7 @@ def triangle_colors(regions, callback = None):
 		for t in range(tc[r]):
 			b = t / tc[r]
 			x = random.random()
-			yield callback(a, b, x) if callback else a, b, x
+			yield callback(a, b, x) if callback else (a, b, x)
 
 
 def region_colors(regions, callback = None):
@@ -43,7 +44,7 @@ def region_colors(regions, callback = None):
 		a = r / rc
 		b = 0
 		x = random.random()
-		yield callback(a, b, x) if callback else a, b, x
+		yield callback(a, b, x) if callback else (a, b, x)
 
 
 class BBox:
@@ -95,17 +96,24 @@ class ViewerWidget(BoxLayout):
 	show_triangle_colors = BooleanProperty()
 	show_region_boundaries = BooleanProperty()
 
-	show_background = BooleanProperty(defaultvalue = False)
+	show_background = BooleanProperty()
 
 	def on_size(self, _, size):
-		self.stretch_factor = min(
+		self.bg.pos = self.pos
+		self.bg.size = self.size
+
+		stretch_factor = min(
 			(size[0] - self.margin * 2) / self.bbox.w,
 			(size[1] - self.margin * 2) / self.bbox.h
 		)
-		self.scale.origin = self.bbox.c
+		self.stretch.x = stretch_factor
+		self.stretch.y = stretch_factor
+		self.stretch.origin = self.bbox.c
 
-		self.xoff = (size[0] - self.bbox.w) / 2
-		self.yoff = (size[1] - self.bbox.h) / 2
+		self.translate.x = self.x + (size[0] - self.bbox.w) / 2
+		self.translate.y = self.y + (size[1] - self.bbox.h) / 2
+
+		self.scale.origin = self.bbox.c
 
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
@@ -113,26 +121,17 @@ class ViewerWidget(BoxLayout):
 		self.tt = tt
 		self.bbox = BBox.from_regions(self.tt)
 
-		self.meshes = []
-		self.scale = Scale(y = -1)
-
 		self.margin = 8
-		self.update_method = 1
+		self.scale = Scale(y = -1)
+		self.tcolors = { }
+		self.bcolors = { }
 
-		self.stretch_factor = 1
-		self.xoff, self.yoff = 0, 0
-
-		# TODO: We need this so we can set the scaling even
-		#	before the first time we draw anything (which is
-		#	when self.scale will be initialized).
-		self._scale_factor = 1.
-
-		# self.bind(pos = self.update, size = self.update)
-		self.bind(size = self.update)
+		self.init_canvas()
 		self.bind(
-			show_triangles = self.update,
-			show_triangle_colors = self.update,
-			show_region_boundaries = self.update)
+			size = self.update_canvas,
+			show_triangles = self.update_canvas,
+			show_triangle_colors = self.update_canvas,
+			show_region_boundaries = self.update_canvas)
 
 	@property
 	def scale_factor(self):
@@ -143,121 +142,84 @@ class ViewerWidget(BoxLayout):
 		self.scale.x = value
 		self.scale.y = -value
 
-	def draw_background(self):
-		with self.canvas:
-			Color(1, 1, 1, .3)
-			self.bg = Rectangle(pos = self.pos, size = self.size)
-			Color(1, 0, 0)
+	def init_canvas(self, *aa):
 
-	def update_background(self):
-		if not self.bg:
-			self.draw_background()
-		self.bg.pos = self.pos
-		self.bg.size = self.size
-
-	def clear_meshes(self):
-		for m in self.meshes:
-			self.canvas.remove(m)
-		self.meshes = []
-
-	def draw_meshes(self):
-		assert len(self.meshes) == 0
+		assert not self.tcolors
+		assert not self.bcolors
 
 		with self.canvas:
+
+			self.bg_color = Color(1, 1, 1, 0)
+			self.bg = Rectangle()
+
 			PushMatrix()
-
-			Translate(x = self.x + self.xoff, y = self.y + self.yoff)
-
-			Scale(x = self.stretch_factor, y = self.stretch_factor,
-				origin = self.bbox.c)
-
+			self.translate = Translate()
+			self.stretch = Scale()
 			self.canvas.add(self.scale)
 
-			if self.show_background:
-				Color(1, 1, 1)
-				Rectangle(pos = self.bbox.p, size = self.bbox.s)
-
-
-			if self.show_triangle_colors:
-				tc = triangle_colors(self.tt, color_cb_c1)
-			else:
-				tc = triangle_colors(self.tt, color_cb_g1)
-
-
-			for ti, t in enumerate(self.tt):
-
-				if t['id'] == 'Srem':
-					Color(1., .3, .3)
-				else:
-					Color(.8, .8, .3)
+			for t in self.tt:
+				tc = self.tcolors[t['id']] = []
 
 				for vv, ii in zip(t['vvv'], t['iii']):
-					if self.show_triangles:
-						next(tc)
-
-					m = Mesh(
+					tc.append(Color())
+					Mesh(
 						vertices = vv,
 						indices = ii,
 						mode = "triangle_fan"
 					)
-					self.meshes.append(m)
 
-				Color(0, 0, 0)
+				Color(1, 0, 0)
 				Line(points = t['contour'])
 
 		with self.canvas:
-			if self.show_region_boundaries:
-				tc = region_colors(self.tt, color_cb_c2)
-				for t in self.tt:
-					next(tc)
-					bbox = BBox(*t['bbox'])
-					Rectangle(pos = bbox.p, size = bbox.s)
+
+			cc = region_colors(self.tt, color_cb_c2)
+			for t in self.tt:
+				self.bcolors[t['id']] = Color(0, 0, 0, 0)
+				bbox = BBox(*t['bbox'])
+				Rectangle(pos = bbox.p, size = bbox.s)
+
 			PopMatrix()
 
-	def update_tesselator(self):
-		tess = Tesselator()
-		tess.add_contour(tuple(self.path.contour))
-		if tess.tesselate():
-			self.tess = tess
-			return self.tess
+	def update_canvas(self, *aa):
 
-	def update_meshes(self):
-		if not self.meshes:
-			self.draw_meshes()
+		if self.show_background:
+			self.bg_color.a = .3
+		else:
+			self.bg_color.a = 0
 
-		# The first RegionWidget will be made visible when its
-		#	window size is not yet determined (and defaults to
-		#	[100, 100]). This means that we need to keep a ref
-		#	to our scaling matrix so we can update its origin.
-		#	Relevant only to update_method == 3.
-		assert self.scale
-		self.scale.origin = self.center
+		if self.show_triangles:
 
-		# TODO: This method assumes that the previous Tesselator
-		#	will be quietly released and garbage collected,
-		#	otherwise we'll leak resources.
-		# NOTE: This method is called after update_tesselator(),
-		#	and the vv and ii of tess.meshes are memoryviews.
-		assert len(self.meshes) == len(self.tess.meshes)
-		for m, vv_ii in zip(self.meshes, self.tess.meshes):
-			m.vertices = vv_ii[0]
-			m.indices = vv_ii[1]
+			if self.show_triangle_colors:
+				cc = triangle_colors(self.tt, color_cb_c1)
+			else:
+				cc = triangle_colors(self.tt, color_cb_g1)
 
-	def update(self, *aa):
-		if self.update_method == 1:
-			self.meshes = []
-			self.canvas.clear()
-			self.draw_background()
-			self.draw_meshes()
+			for k, r in self.tcolors.items():
+				for c in r:
+					c.rgba = next(cc).rgba
+		else:
 
-		elif self.update_method == 2:
-			self.update_background()
-			self.clear_meshes()
-			self.draw_meshes()
+			for k, r in self.tcolors.items():
 
-		elif self.update_method == 3:
-			self.update_background()
-			self.update_meshes()
+				if k == 'Srem':
+					x = Color(1., .3, .3)
+				else:
+					x = Color(.8, .8, .3)
+
+				for c in r:
+					c.rgba = x.rgba
+
+		if self.show_region_boundaries:
+
+			cc = region_colors(self.tt, color_cb_c2)
+			for k, c in self.bcolors.items():
+				c.rgba = next(cc).rgba
+		else:
+
+			for k, c in self.bcolors.items():
+				c.a = 0
+
 
 class MySlider(Slider):
 	def __init__(self, **kk):
@@ -363,6 +325,9 @@ class ColorControlWidget(BoxLayout):
 
 class ViewerApp(App):
 
+	def on_motion(self, win, etype, me):
+		print(etype, me)
+
 	def on_slider_value_change(self, slider, value):
 		self.viewer.scale_factor = value
 
@@ -383,6 +348,8 @@ class ViewerApp(App):
 
 		view.add_widget(self.viewer)
 		view.add_widget(control)
+
+		# Window.bind(on_motion = self.on_motion)
 
 		return view
 
