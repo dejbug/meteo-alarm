@@ -9,11 +9,6 @@ Config.set('graphics', 'height', SCREEN_HEIGHT)
 from kivy.app import App
 from kivy.properties import BooleanProperty
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
-from kivy.uix.widget import Widget
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, Line, Rectangle, Mesh
@@ -51,16 +46,21 @@ def region_colors(regions, callback = None):
 		yield callback(a, b, x) if callback else a, b, x
 
 
-class TtBbox:
+class BBox:
 
-	def __init__(self, tt):
-		self.x, self.y, self.X, self.Y = sys.maxsize, sys.maxsize, 0, 0
+	def __init__(self, x = 0, y = 0, X = 0, Y = 0):
+		self.x, self.y, self.X, self.Y = x, y, X, Y
+
+	@classmethod
+	def from_regions(cls, tt):
+		self = cls(sys.maxsize, sys.maxsize, 0, 0)
 		for t in tt:
 			x, y, X, Y = t['bbox']
 			self.x = min(self.x, x)
 			self.y = min(self.y, y)
 			self.X = max(self.X, X)
 			self.Y = max(self.Y, Y)
+		return self
 
 	def __iter__(self):
 		yield self.x
@@ -110,7 +110,7 @@ class ViewerWidget(BoxLayout):
 		super().__init__(**kk)
 
 		self.tt = tt
-		self.bbox = TtBbox(self.tt)
+		self.bbox = BBox.from_regions(self.tt)
 
 		self.meshes = []
 		self.scale = Scale(y = -1)
@@ -209,8 +209,8 @@ class ViewerWidget(BoxLayout):
 				tc = region_colors(self.tt, color_cb_c2)
 				for t in self.tt:
 					next(tc)
-					x, y, X, Y = t['bbox']
-					Rectangle(pos = (x, y), size = (X - x, Y - y))
+					bbox = BBox(*t['bbox'])
+					Rectangle(pos = bbox.p, size = bbox.s)
 			PopMatrix()
 
 	def update_tesselator(self):
