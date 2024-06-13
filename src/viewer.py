@@ -13,6 +13,7 @@ from kivy.uix.widget import Widget
 from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.togglebutton import ToggleButton
+from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, Line, Rectangle, Mesh
 from kivy.graphics.tesselator import Tesselator
@@ -49,6 +50,16 @@ class TriangleColorizer:
 	def reset(self):
 		self.i = 0
 		self.j = 0
+
+	def jnext(self):
+		return next(self)
+
+	def inext(self):
+		# self.j = sys.maxsize
+		# return next(self)
+		if self.i < self.ic:
+			self.j = self.jc
+			return next(self)
 
 	def __next__(self):
 		if self.i >= self.ic:
@@ -111,8 +122,9 @@ class TtBbox:
 class ViewerWidget(BoxLayout):
 
 	show_triangles = BooleanProperty(defaultvalue = False)
-	show_triangle_colors = BooleanProperty(defaultvalue = False)
+	show_triangle_colors = BooleanProperty(defaultvalue = True)
 	show_background = BooleanProperty(defaultvalue = False)
+	show_region_boundaries = BooleanProperty(defaultvalue = False)
 
 	def on_size(self, _, size):
 		self.stretch_factor = min(
@@ -147,7 +159,10 @@ class ViewerWidget(BoxLayout):
 
 		# self.bind(pos = self.update, size = self.update)
 		self.bind(size = self.update)
-		self.bind(show_triangles = self.update, show_triangle_colors = self.update)
+		self.bind(
+			show_triangles = self.update,
+			show_triangle_colors = self.update,
+			show_region_boundaries = self.update)
 
 	@property
 	def scale_factor(self):
@@ -180,6 +195,8 @@ class ViewerWidget(BoxLayout):
 	def draw_meshes(self):
 		assert len(self.meshes) == 0
 
+
+
 		with self.canvas:
 			PushMatrix()
 
@@ -207,8 +224,6 @@ class ViewerWidget(BoxLayout):
 				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_bw)
 
 			for t in self.tt:
-				# print(t['id'])
-
 				if t['id'] == 'Srem':
 					Color(1., .3, .3)
 				else:
@@ -216,7 +231,8 @@ class ViewerWidget(BoxLayout):
 
 				for vv, ii in zip(t['vvv'], t['iii']):
 					if self.show_triangles:
-						next(tc)
+						# next(tc)
+						tc.jnext()
 
 					m = Mesh(
 						vertices = vv,
@@ -228,6 +244,15 @@ class ViewerWidget(BoxLayout):
 				Color(0, 0, 0)
 				Line(points = t['contour'])
 
+		with self.canvas:
+			if self.show_region_boundaries:
+				tc = TriangleColorizer(self.tt, callback =
+					lambda a, b, r: Color(a, 1, 1, .3, mode = 'hsv') )
+
+				for t in self.tt:
+					x, y, X, Y = t['bbox']
+					tc.inext()
+					Rectangle(pos = (x, y), size = (X - x, Y - y))
 			PopMatrix()
 
 	def update_tesselator(self):
@@ -261,8 +286,8 @@ class ViewerWidget(BoxLayout):
 
 	def update(self, *aa):
 		if self.update_method == 1:
-			self.canvas.clear()
 			self.meshes = []
+			self.canvas.clear()
 			self.draw_background()
 			self.draw_meshes()
 
@@ -313,6 +338,37 @@ class ControlWidget(BoxLayout):
 		self.bg.size = self.size
 
 
+class Toggler(CheckBox):
+
+	def __init__(self, viewer, prop, slave = None, **kk):
+		# kk.setdefault('active', False)
+		# kk.setdefault('disabled', False)
+		super().__init__(**kk)
+
+		self.viewer = viewer
+		self.prop = prop
+		self.slave = slave
+
+		self.on = kk.setdefault('active', False)
+		self.update_slave()
+
+	def on_press(self, *aa):
+		self.on = not self.on
+		self.update_slave()
+
+	def update_slave(self):
+		if self.slave:
+			self.slave.disabled = not self.on
+
+	@property
+	def on(self):
+		return getattr(self.viewer, self.prop)
+
+	@on.setter
+	def on(self, value):
+		setattr(self.viewer, self.prop, value)
+
+
 class ColorControlWidget(BoxLayout):
 
 	def __init__(self, viewer, **kk):
@@ -321,20 +377,10 @@ class ColorControlWidget(BoxLayout):
 		kk.setdefault('width', '180sp')
 		super().__init__(**kk)
 
-		self.b1 = Button(text = 'triangles')
-		self.b1.bind(on_press = self.on_b1)
-		self.add_widget(self.b1)
-
-		self.b2 = ToggleButton(text = 'color', disabled = True)
-		self.b2.bind(on_press = self.on_b2)
-		self.add_widget(self.b2)
-
-	def on_b1(self, *aa):
-		self.viewer.show_triangles = not self.viewer.show_triangles
-		self.b2.disabled = not self.viewer.show_triangles
-
-	def on_b2(self, *aa):
-		self.viewer.show_triangle_colors = not self.viewer.show_triangle_colors
+		t = Toggler(self.viewer, 'show_triangle_colors', active = False)
+		self.add_widget(Toggler(self.viewer, 'show_triangles', t))
+		self.add_widget(t)
+		self.add_widget(Toggler(self.viewer, 'show_region_boundaries'))
 
 
 class ViewerApp(App):
@@ -348,7 +394,7 @@ class ViewerApp(App):
 
 		self.viewer = ViewerWidget(tt)
 
-		slider = MySlider()
+		slider = MySlider(max = 2)
 		slider.bind(value = self.on_slider_value_change)
 
 		view = BoxLayout(orientation = 'vertical')

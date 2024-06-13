@@ -81,7 +81,7 @@ class Tesselation:
 
 	@property
 	def bbox(self):
-		x, y, X, Y = sys.maxsize, sys.maxsize, 0, 0
+		x, y, X, Y = sys.maxsize, sys.maxsize, -sys.maxsize, -sys.maxsize
 		for vv in self.vvv:
 			for i in range(0, len(vv), 4):
 				x = min(x, vv[i])
