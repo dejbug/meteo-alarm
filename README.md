@@ -8,6 +8,8 @@ The main purpose of this project is to give me something to do while getting to 
 
 ## 2024-06-13
 
+**Q3**: I just realized that (substrings of) some of my function names are dirty words. What is Github's policy on 'dirty' function names in sources and commit messages?
+
 **Q2**: If I (two-way-)bind a BooleanProperty to a CheckBox and vice versa, will it devolve into infinite (mutual) recursion or does Kivy catch this and correct for it?
 
 **Q1**: How do you properly add pre-created instructions from within the canvas context? May I do:

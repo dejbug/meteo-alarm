@@ -1,3 +1,4 @@
+
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
 
@@ -24,6 +25,30 @@ from kivy.graphics.context_instructions import Translate, Scale, Rotate
 import sys, json
 
 import random
+
+
+color_cb_g1 = lambda a, b, r: Color(a, 0, b, mode = 'hsv')
+color_cb_c1 = lambda a, b, r: Color(a, b, r)
+color_cb_c2 = lambda a, b, r: Color(a, 1, 1, .3, mode = 'hsv')
+
+def triangle_colors(regions, callback = None):
+	rc = len(regions)
+	tc = [ len(r['vvv']) for r in regions ]
+	for r in range(rc):
+		a = r / rc
+		for t in range(tc[r]):
+			b = t / tc[r]
+			x = random.random()
+			yield callback(a, b, x) if callback else a, b, x
+
+
+def region_colors(regions, callback = None):
+	rc = len(regions)
+	for r in range(rc):
+		a = r / rc
+		b = 0
+		x = random.random()
+		yield callback(a, b, x) if callback else a, b, x
 
 
 class TriangleColorizer:
@@ -219,11 +244,13 @@ class ViewerWidget(BoxLayout):
 
 
 			if self.show_triangle_colors:
-				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_color)
+				tc = triangle_colors(self.tt, color_cb_c1)
 			else:
-				tc = TriangleColorizer(self.tt, callback = TriangleColorizer.cb_bw)
+				tc = triangle_colors(self.tt, color_cb_g1)
 
-			for t in self.tt:
+
+			for ti, t in enumerate(self.tt):
+
 				if t['id'] == 'Srem':
 					Color(1., .3, .3)
 				else:
@@ -231,8 +258,7 @@ class ViewerWidget(BoxLayout):
 
 				for vv, ii in zip(t['vvv'], t['iii']):
 					if self.show_triangles:
-						# next(tc)
-						tc.jnext()
+						next(tc)
 
 					m = Mesh(
 						vertices = vv,
@@ -246,12 +272,10 @@ class ViewerWidget(BoxLayout):
 
 		with self.canvas:
 			if self.show_region_boundaries:
-				tc = TriangleColorizer(self.tt, callback =
-					lambda a, b, r: Color(a, 1, 1, .3, mode = 'hsv') )
-
+				tc = region_colors(self.tt, color_cb_c2)
 				for t in self.tt:
+					next(tc)
 					x, y, X, Y = t['bbox']
-					tc.inext()
 					Rectangle(pos = (x, y), size = (X - x, Y - y))
 			PopMatrix()
 
