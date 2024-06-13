@@ -300,8 +300,6 @@ class ControlWidget(BoxLayout):
 class Toggler(CheckBox):
 
 	def __init__(self, viewer, prop, slave = None, **kk):
-		# kk.setdefault('active', False)
-		# kk.setdefault('disabled', False)
 		kk.setdefault('color', (0, 0, 0, 1))
 		super().__init__(**kk)
 
@@ -309,7 +307,9 @@ class Toggler(CheckBox):
 		self.prop = prop
 		self.slave = slave
 
+		self.margin = kk.setdefault('margin', 0)
 		self.on = kk.setdefault('active', False)
+
 		self.update_slave()
 
 		with self.canvas.before:
@@ -321,8 +321,14 @@ class Toggler(CheckBox):
 
 	def update(self, *aa):
 		self.bg.a = .1 if self.disabled else .3
-		self.rc.pos = self.x + 8, self.y + 8
-		self.rc.size = self.width - 16, self.height - 16
+		self.rc.pos = (
+			self.x + self.margin,
+			self.y + self.margin
+		)
+		self.rc.size = (
+			self.width - self.margin - self.margin,
+			self.height - self.margin - self.margin
+		)
 
 	def on_press(self, *aa):
 		self.on = not self.on
