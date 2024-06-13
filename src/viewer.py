@@ -1,5 +1,5 @@
 
-SCREEN_WIDTH = 1200
+SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 800
 
 from kivy.config import Config
@@ -49,61 +49,6 @@ def region_colors(regions, callback = None):
 		b = 0
 		x = random.random()
 		yield callback(a, b, x) if callback else a, b, x
-
-
-class TriangleColorizer:
-
-	cb_bw = lambda a, b, r: Color(a, 0, b, mode = 'hsv')
-	cb_color = lambda a, b, r: Color(a, b, r)
-
-	def __init__(self, tt, callback = None):
-		self.xx = tuple( len(t['vvv']) for t in tt )
-		self.callback = callback
-		# print(self.xx)
-		self.reset()
-
-	@property
-	def ic(self):
-		return len(self.xx)
-
-	@property
-	def jc(self):
-		if self.i < self.ic:
-			return self.xx[self.i]
-		return 0
-
-	def reset(self):
-		self.i = 0
-		self.j = 0
-
-	def jnext(self):
-		return next(self)
-
-	def inext(self):
-		# self.j = sys.maxsize
-		# return next(self)
-		if self.i < self.ic:
-			self.j = self.jc
-			return next(self)
-
-	def __next__(self):
-		if self.i >= self.ic:
-			return
-
-		if self.j >= self.jc:
-			self.i += 1
-			self.j = 0
-			if self.i >= self.ic:
-				return
-
-		a = self.i / self.ic
-		b = self.j / self.jc
-		self.j += 1
-
-		if not self.callback:
-			return a, b, random.random()
-
-		return self.callback(a, b, random.random())
 
 
 class TtBbox:

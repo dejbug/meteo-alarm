@@ -12,25 +12,6 @@ The main purpose of this project is to give me something to do while getting to 
 
 **Q2**: If I (two-way-)bind a BooleanProperty to a CheckBox and vice versa, will it devolve into infinite (mutual) recursion or does Kivy catch this and correct for it?
 
-**Q1**: How do you properly add pre-created instructions from within the canvas context? May I do:
-```python
-	line2 = Line()
-	with self.canvas:
-		line1 = Line()
-		self.canvas.add(line2)
-		line3 = Line()
-```
-Or should I do:
-```python
-	line2 = Line()
-	with self.canvas:
-		line1 = Line()
-	self.canvas.add(line2)
-	with self.canvas:
-		line3 = Line()
-```
-It would have been easier to just `git stash` and go test this rather than to write the question down. What's wrong with me?
-
 ## 2024-06-12
 
 This is to become a mobile app of course, but I was briefly thinking about mouse-hovering animations which would reduce to [hittesting of arbirary regions](https://en.wikipedia.org/wiki/Point_in_polygon) and I got a bit derailed.
