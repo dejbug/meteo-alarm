@@ -102,37 +102,15 @@ class ViewerWidget(BoxLayout):
 		self.bg.pos = self.pos
 		self.bg.size = self.size
 
+		self.translate.x = self.x + (size[0] - self.bbox.w) / 2
+		self.translate.y = self.y + (size[1] - self.bbox.h) / 2
+
 		self.stretch_factor = min(
 			(size[0] - self.margin * 2) / self.bbox.w,
 			(size[1] - self.margin * 2) / self.bbox.h
 		)
 
-		self.translate.x = self.x + (size[0] - self.bbox.w) / 2
-		self.translate.y = self.y + (size[1] - self.bbox.h) / 2
-
-		self.scale.origin = self.bbox.c
-		self.zoom = self._zoom
-
-	def __init__(self, tt, **kk):
-		super().__init__(**kk)
-
-		self.tt = tt
-		self.bbox = BBox.from_regions(self.tt)
-
-		self.margin = 8
-		self.translate = Translate()
-		self.scale = Scale(y = -1)
-		self.tcolors = { }
-		self.bcolors = { }
-
-		self._zoom = 1
-
-		self.init_canvas()
-		self.bind(
-			size = self.update_canvas,
-			show_triangles = self.update_canvas,
-			show_triangle_colors = self.update_canvas,
-			show_region_boundaries = self.update_canvas)
+		self.zoom = self._zoom # update scaling (with new stretch_factor)
 
 	@property
 	def zoom(self):
@@ -143,6 +121,27 @@ class ViewerWidget(BoxLayout):
 		self._zoom = value
 		self.scale.x = self.stretch_factor * value
 		self.scale.y = self.stretch_factor * -value
+
+	def __init__(self, tt, **kk):
+		super().__init__(**kk)
+
+		self.tt = tt
+		self.bbox = BBox.from_regions(self.tt)
+
+		self.margin = 8
+		self.translate = Translate()
+		self.scale = Scale(y = -1, origin = self.bbox.c)
+		self._zoom = 1
+
+		self.tcolors = { }
+		self.bcolors = { }
+
+		self.init_canvas()
+		self.bind(
+			size = self.update_canvas,
+			show_triangles = self.update_canvas,
+			show_triangle_colors = self.update_canvas,
+			show_region_boundaries = self.update_canvas)
 
 	def init_canvas(self, *aa):
 
