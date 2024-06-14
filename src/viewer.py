@@ -102,18 +102,16 @@ class ViewerWidget(BoxLayout):
 		self.bg.pos = self.pos
 		self.bg.size = self.size
 
-		stretch_factor = min(
+		self.stretch_factor = min(
 			(size[0] - self.margin * 2) / self.bbox.w,
 			(size[1] - self.margin * 2) / self.bbox.h
 		)
-		self.stretch.x = stretch_factor
-		self.stretch.y = stretch_factor
-		self.stretch.origin = self.bbox.c
 
 		self.translate.x = self.x + (size[0] - self.bbox.w) / 2
 		self.translate.y = self.y + (size[1] - self.bbox.h) / 2
 
 		self.scale.origin = self.bbox.c
+		self.zoom = self._zoom
 
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
@@ -122,9 +120,12 @@ class ViewerWidget(BoxLayout):
 		self.bbox = BBox.from_regions(self.tt)
 
 		self.margin = 8
+		self.translate = Translate()
 		self.scale = Scale(y = -1)
 		self.tcolors = { }
 		self.bcolors = { }
+
+		self._zoom = 1
 
 		self.init_canvas()
 		self.bind(
@@ -134,13 +135,14 @@ class ViewerWidget(BoxLayout):
 			show_region_boundaries = self.update_canvas)
 
 	@property
-	def scale_factor(self):
-		return self.scale.x
+	def zoom(self):
+		return self._zoom
 
-	@scale_factor.setter
-	def scale_factor(self, value):
-		self.scale.x = value
-		self.scale.y = -value
+	@zoom.setter
+	def zoom(self, value):
+		self._zoom = value
+		self.scale.x = self.stretch_factor * value
+		self.scale.y = self.stretch_factor * -value
 
 	def init_canvas(self, *aa):
 
@@ -153,8 +155,7 @@ class ViewerWidget(BoxLayout):
 			self.bg = Rectangle()
 
 			PushMatrix()
-			self.translate = Translate()
-			self.stretch = Scale()
+			self.canvas.add(self.translate)
 			self.canvas.add(self.scale)
 
 			for t in self.tt:
@@ -329,7 +330,7 @@ class ViewerApp(App):
 		print(etype, me)
 
 	def on_slider_value_change(self, slider, value):
-		self.viewer.scale_factor = value
+		self.viewer.zoom = value
 
 	def build(self):
 		with open('regions.json') as file:
