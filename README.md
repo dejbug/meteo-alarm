@@ -6,6 +6,10 @@ The main purpose of this project is to give me something to do while getting to 
 
 # Devlog
 
+## 2024-06-14
+
+I've caught some kind of bug, a low-burning flu. And I'm still obsessing over that region-hovering digression. It's a side-quest but I need to see it through. So then, mouse input handling. The context transformations need to get applied to the cursor pos before we can even begin to think about ray-casting (or whatever). There didn't seem an easy way to do that,  like getting the canvas' internal matrices, so I've ended up removing all those transformation helper classes in favor of a single matrix. It took me quite some fiddling. It's becoming annoying how little experience I have with 3D stuff. I've been kinda faking it with the little that I know. But the knowledge is shallow and disjoint, not at all integrated into a clean conceptual framework that is useful and beautiful (pacifying, pleasing) in its explanatory power.
+
 ## 2024-06-13
 
 I must admit, I am still not sure how to best approach the canvas. I've rewritten it so that I'm adding everything to the canvas just once, keeping references to everything that changes. All 'classical drawing' (blitting, really; pixel-bashing) is done by manipulating those references. Think tkinter's canvas; forget GDI raster graphics.
