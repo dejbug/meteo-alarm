@@ -14,9 +14,10 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, Line, Rectangle, Mesh
 from kivy.graphics.tesselator import Tesselator
+from kivy.graphics.transformation import Matrix
 
 from kivy.graphics.context_instructions import PushMatrix, PopMatrix
-from kivy.graphics.context_instructions import Translate, Scale, Rotate
+from kivy.graphics.context_instructions import MatrixInstruction
 
 import sys, json
 
@@ -51,6 +52,9 @@ class BBox:
 
 	def __init__(self, x = 0, y = 0, X = 0, Y = 0):
 		self.x, self.y, self.X, self.Y = x, y, X, Y
+
+	def __repr__(self):
+		return f'BBox[{self.x:8.3f} {self.y:8.3f} {self.X:8.3f} {self.Y:8.3f}]'
 
 	@classmethod
 	def from_regions(cls, tt):
@@ -102,9 +106,6 @@ class ViewerWidget(BoxLayout):
 		self.bg.pos = self.pos
 		self.bg.size = self.size
 
-		self.translate.x = self.x + (size[0] - self.bbox.w) / 2
-		self.translate.y = self.y + (size[1] - self.bbox.h) / 2
-
 		self.stretch_factor = min(
 			(size[0] - self.margin * 2) / self.bbox.w,
 			(size[1] - self.margin * 2) / self.bbox.h
@@ -119,8 +120,35 @@ class ViewerWidget(BoxLayout):
 	@zoom.setter
 	def zoom(self, value):
 		self._zoom = value
-		self.scale.x = self.stretch_factor * value
-		self.scale.y = self.stretch_factor * -value
+
+		self.matrix.identity()
+
+		self.matrix.translate(
+			self.center[0] - self.bbox.w/2 - self.bbox.x,
+			self.center[1] - self.bbox.h/2 - self.bbox.y, 0)
+
+		# The bbox is flush with the vertices. We need
+		#	the document size here.
+		# TODO: Extract it from the SVG:
+		#	viewBox="0 0 210 297".
+		dbox = BBox(0, 0, 210, 297)
+
+		self.matrix.translate(0, dbox.h, 0)
+		self.matrix.scale(1, -1, 0)
+
+		zoom = self._zoom * self.stretch_factor
+
+		self.matrix.scale(zoom, zoom, 0)
+		self.matrix.translate(
+			-self.bbox.x * (zoom - 1),
+			 self.bbox.y * (zoom - 1), 0)
+
+		self.matrix.translate(
+			-zoom * self.bbox.w / 2,
+			 zoom * self.bbox.h / 2, 0)
+		self.matrix.translate(self.bbox.w / 2, -self.bbox.h / 2, 0)
+
+		self.transformation.matrix = self.matrix
 
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
@@ -129,9 +157,10 @@ class ViewerWidget(BoxLayout):
 		self.bbox = BBox.from_regions(self.tt)
 
 		self.margin = 8
-		self.translate = Translate()
-		self.scale = Scale(y = -1, origin = self.bbox.c)
+
 		self._zoom = 1
+		self.matrix = Matrix()
+		self.transformation = MatrixInstruction(matrix = self.matrix)
 
 		self.tcolors = { }
 		self.bcolors = { }
@@ -153,9 +182,14 @@ class ViewerWidget(BoxLayout):
 			self.bg_color = Color(1, 1, 1, 0)
 			self.bg = Rectangle()
 
+			# Color(0, 0, 1, .5)
+			# Rectangle(pos = self.bbox.p, size = self.bbox.s)
+
 			PushMatrix()
-			self.canvas.add(self.translate)
-			self.canvas.add(self.scale)
+			self.canvas.add(self.transformation)
+
+			# Color(0, 1, 0, .5)
+			# Rectangle(pos = self.bbox.p, size = self.bbox.s)
 
 			for t in self.tt:
 				tc = self.tcolors[t['id']] = []
