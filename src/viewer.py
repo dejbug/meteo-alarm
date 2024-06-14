@@ -5,6 +5,8 @@ SCREEN_HEIGHT = 800
 from kivy.config import Config
 Config.set('graphics', 'width', SCREEN_WIDTH)
 Config.set('graphics', 'height', SCREEN_HEIGHT)
+Config.set('input', 'mouse', 'mouse,disable_multitouch')
+# Config.set('input', 'mouse', 'mouse,disable_on_activity')
 
 from kivy.app import App
 from kivy.core.window import Window
@@ -92,6 +94,9 @@ class BBox:
 	@property
 	def s(self):
 		return self.w, self.h
+
+	def contains(self, x, y):
+		return x >= self.x and x <= self.X and y >= self.y and y <= self.Y
 
 
 class ViewerWidget(BoxLayout):
@@ -182,14 +187,8 @@ class ViewerWidget(BoxLayout):
 			self.bg_color = Color(1, 1, 1, 0)
 			self.bg = Rectangle()
 
-			# Color(0, 0, 1, .5)
-			# Rectangle(pos = self.bbox.p, size = self.bbox.s)
-
 			PushMatrix()
 			self.canvas.add(self.transformation)
-
-			# Color(0, 1, 0, .5)
-			# Rectangle(pos = self.bbox.p, size = self.bbox.s)
 
 			for t in self.tt:
 				tc = self.tcolors[t['id']] = []
@@ -359,11 +358,59 @@ class ColorControlWidget(BoxLayout):
 
 class ViewerApp(App):
 
+	def on_mouse_down(self, win, x, y, button, modifiers):
+		# print(x, y, button, modifiers)
+		if not self.button:
+			self.button = button
+
+	def on_mouse_up(self, win, x, y, button, modifiers):
+		# print(x, y, button, modifiers)
+		self.button = None
+
 	def on_motion(self, win, etype, me):
-		print(etype, me)
+		# print(etype, me)
+		x = (self.viewer.width + self.viewer.x) * me.sx
+		y = (self.viewer.height + self.viewer.y) * me.sy
+
+		# matrix = self.viewer.matrix.inverse()
+		# x, y, _ = matrix.transform_point(x, y, 0)
+
+		matrix = self.viewer.matrix
+		# print(matrix[0], matrix[5], matrix[12], matrix[13])
+		sx = 1 / (matrix[0] or  0.000000001)
+		sy = 1 / (matrix[5] or -0.000000001)
+		dx = -matrix[12]
+		dy = -matrix[13]
+
+		x = (x + dx) * sx
+		y = (y + dy) * sy
+
+		if not self.viewer.show_region_boundaries and not self.button:
+
+			for t in self.viewer.tt:
+				bbox = BBox(*t['bbox'])
+				id = t['id']
+				c = self.viewer.bcolors[id]
+				if bbox.contains(x, y):
+					any = True
+					c.a = .3
+				else:
+					c.a = 0
+
+		else:
+
+			if x < self.viewer.x: return
+			if y < self.viewer.y: return
+
+			# self.viewer.translate.x = x - self.viewer.bbox.c[0]
+			# self.viewer.translate.y = y - self.viewer.bbox.c[1]
 
 	def on_slider_value_change(self, slider, value):
 		self.viewer.zoom = value
+
+	def __init__(self, **kk):
+		super().__init__(**kk)
+		self.button = None
 
 	def build(self):
 		with open('regions.json') as file:
@@ -383,7 +430,9 @@ class ViewerApp(App):
 		view.add_widget(self.viewer)
 		view.add_widget(control)
 
-		# Window.bind(on_motion = self.on_motion)
+		Window.bind(on_motion = self.on_motion)
+		Window.bind(on_mouse_down = self.on_mouse_down)
+		Window.bind(on_mouse_up = self.on_mouse_up)
 
 		return view
 
