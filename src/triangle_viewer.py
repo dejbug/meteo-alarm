@@ -9,9 +9,6 @@
 # exit()
 
 
-def triangle_bbox():
-	pass
-
 def triangle_orient(A, B, C):
 	# https://www.baeldung.com/cs/check-if-point-is-in-2d-triangle
 	ABx = B[0] - A[0]
@@ -21,12 +18,10 @@ def triangle_orient(A, B, C):
 	cp = ABx * ACy - ABy * ACx
 	return 1 if cp > 0 else -1
 
+
 def pt_in_triangle(A, B, C, p):
 	# https://www.baeldung.com/cs/check-if-point-is-in-2d-triangle
 	return 3 == abs(triangle_orient(A, B, p) + triangle_orient(B, C, p) + triangle_orient(C, A, p))
-
-def pt_in_triangle_fan():
-	pass
 
 
 import kivy
@@ -44,6 +39,7 @@ from kivy.graphics import Color, Line, Rectangle, Mesh
 from kivy.properties import NumericProperty
 
 from kivy.base import runTouchApp
+
 
 class KeyboardWidget(Widget):
 
@@ -72,6 +68,48 @@ class KeyboardWidget(Widget):
 		# Return True to accept the key. Otherwise, it will be used by
 		# the system
 
+
+class Triangle:
+
+	def __init__(self, *points, bbox = None):
+		self.points = points
+		self.bbox = bbox
+
+	@property
+	def vertices(self):
+		for i in range(0, len(self.points), 2):
+			x = self.points[i]
+			y = self.points[i + 1]
+			yield x
+			yield y
+			yield x
+			yield y
+
+	@property
+	def indices(self):
+		return range(len(self.points) // 2)
+
+	def contains(self, x, y):
+		if self.bbox and not self.bbox.contains(x, y):
+			return False
+		if len(self.points) // 2 == 3:
+			A = self.points[0], self.points[1]
+			B = self.points[2], self.points[3]
+			C = self.points[4], self.points[5]
+			return pt_in_triangle(A, B, C, (x, y))
+		else:
+			# A B C, C D A, D E A, ...
+			# A B C, A C D, A D E, ...
+			A = self.points[0], self.points[1]
+			for i in range(len(self.points) // 2 - 2):
+				B = self.points[2 + i * 2], self.points[3 + i * 2]
+				C = self.points[4 + i * 2], self.points[5 + i * 2]
+				if pt_in_triangle(A, B, C, (x, y)):
+					return True
+			return False
+
+
+
 class TriangleViewer(KeyboardWidget):
 
 	region = NumericProperty()
@@ -82,12 +120,10 @@ class TriangleViewer(KeyboardWidget):
 		# self.triangle = rr[0].fans[0]
 		# self.regions = load_regions()
 
-		self.triangle = (100, 100, 500, 100, 300, 500)
+		self.triangle = Triangle(100, 100, 500, 100, 600, 500, 300, 500)
 		self.fan = Mesh(
-			vertices = [self.triangle[0], self.triangle[1], self.triangle[0], self.triangle[1],
-						self.triangle[2], self.triangle[3], self.triangle[2], self.triangle[3],
-						self.triangle[4], self.triangle[5], self.triangle[4], self.triangle[5]],
-			indices = [0, 1, 2],
+			vertices = list(self.triangle.vertices),
+			indices = list(self.triangle.indices),
 			mode = "triangle_fan"
 		)
 		self.bind(region = self.draw)
@@ -114,6 +150,7 @@ class TriangleViewer(KeyboardWidget):
 			Color(1, 0, 0, .3)
 			self.canvas.add(self.fan)
 
+
 class TriangleViewerApp(App):
 
 	def __init__(self, **kk):
@@ -131,11 +168,10 @@ class TriangleViewerApp(App):
 	def on_motion(self, win, etype, me):
 		x = (self.viewer.width + self.viewer.x) * me.sx
 		y = (self.viewer.height + self.viewer.y) * me.sy
-		A = self.viewer.triangle[0], self.viewer.triangle[1]
-		B = self.viewer.triangle[2], self.viewer.triangle[3]
-		C = self.viewer.triangle[4], self.viewer.triangle[5]
-		print(pt_in_triangle(A, B, C, (x, y)))
+		print(self.viewer.triangle.contains(x, y))
 
-TriangleViewerApp().run()
 
-# runTouchApp(TriangleViewer())
+if __name__ == '__main__':
+
+	TriangleViewerApp().run()
+	# runTouchApp(TriangleViewer())
