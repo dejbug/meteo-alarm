@@ -120,7 +120,7 @@ class TriangleViewer(KeyboardWidget):
 		# self.triangle = rr[0].fans[0]
 		# self.regions = load_regions()
 
-		self.triangle = Triangle(100, 100, 500, 100, 600, 500, 300, 500)
+		self.triangle = Triangle(100, 100, 500, 100, 600, 500, 300, 500, 10, 550)
 		self.fan = Mesh(
 			vertices = list(self.triangle.vertices),
 			indices = list(self.triangle.indices),

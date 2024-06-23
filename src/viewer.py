@@ -25,18 +25,21 @@ import sys, json
 
 import random
 
+import regions
+
 
 color_cb_g1 = lambda a, b, r: Color(a, 0, b, mode = 'hsv')
 color_cb_c1 = lambda a, b, r: Color(a, b, r)
 color_cb_c2 = lambda a, b, r: Color(a, 1, 1, .3, mode = 'hsv')
 
+
 def triangle_colors(regions, callback = None):
 	rc = len(regions)
-	tc = [ len(r['vvv']) for r in regions ]
-	for r in range(rc):
-		a = r / rc
-		for t in range(tc[r]):
-			b = t / tc[r]
+	for i, r in enumerate(regions):
+		a = i / rc
+		tc = len(r['vvv'])
+		for t in range(tc):
+			b = t / tc
 			x = random.random()
 			yield callback(a, b, x) if callback else (a, b, x)
 
@@ -169,6 +172,7 @@ class ViewerWidget(BoxLayout):
 
 		self.tcolors = { }
 		self.bcolors = { }
+		self.fans = { }
 
 		self.init_canvas()
 		self.bind(
@@ -193,7 +197,11 @@ class ViewerWidget(BoxLayout):
 			for t in self.tt:
 				tc = self.tcolors[t['id']] = []
 
+				self.fans[t['id']] = fans = []
+
 				for vv, ii in zip(t['vvv'], t['iii']):
+					fans.append(regions.Fan(vv, ii))
+
 					tc.append(Color())
 					Mesh(
 						vertices = vv,
@@ -201,14 +209,11 @@ class ViewerWidget(BoxLayout):
 						mode = "triangle_fan"
 					)
 
-				Color(1, 0, 0)
+				Color(0, 0, 0)
 				Line(points = t['contour'])
 
-		with self.canvas:
-
-			cc = region_colors(self.tt, color_cb_c2)
 			for t in self.tt:
-				self.bcolors[t['id']] = Color(0, 0, 0, 0)
+				self.bcolors[t['id']] = Color()
 				bbox = BBox(*t['bbox'])
 				Rectangle(pos = bbox.p, size = bbox.s)
 
@@ -224,24 +229,24 @@ class ViewerWidget(BoxLayout):
 		if self.show_triangles:
 
 			if self.show_triangle_colors:
-				cc = triangle_colors(self.tt, color_cb_c1)
+				CC = triangle_colors(self.tt, color_cb_c1)
 			else:
-				cc = triangle_colors(self.tt, color_cb_g1)
+				CC = triangle_colors(self.tt, color_cb_g1)
 
-			for k, r in self.tcolors.items():
-				for c in r:
-					c.rgba = next(cc).rgba
+			for id, cc in self.tcolors.items():
+				for c in cc:
+					c.rgba = next(CC).rgba
 		else:
 
-			for k, r in self.tcolors.items():
+			for id, cc in self.tcolors.items():
 
-				if k == 'Srem':
-					x = Color(1., .3, .3)
+				if id == 'Srem':
+					C = Color(1., .3, .3)
 				else:
-					x = Color(.8, .8, .3)
+					C = Color(.8, .8, .3)
 
-				for c in r:
-					c.rgba = x.rgba
+				for c in cc:
+					c.rgba = C.rgba
 
 		if self.show_region_boundaries:
 
@@ -387,15 +392,47 @@ class ViewerApp(App):
 
 		if not self.viewer.show_region_boundaries and not self.button:
 
-			for t in self.viewer.tt:
-				bbox = BBox(*t['bbox'])
-				id = t['id']
-				c = self.viewer.bcolors[id]
-				if bbox.contains(x, y):
-					any = True
-					c.a = .3
-				else:
-					c.a = 0
+			id_bb_s = ( ( t['id'], BBox(*t['bbox']) ) for t in self.viewer.tt )
+
+			if self.viewer.show_triangles:
+
+				done = False
+
+				if self.last_fan:
+					if self.last_fan.contains(x, y):
+						done = True
+					else:
+						self.last_fan = None
+						self.last_fan_color.rgba = self.last_fan_rgba
+						# self.last_fan_color = None
+						# self.last_fan_rgba = None
+
+				RGBA = (0, 0, 0, 1) if self.viewer.show_triangle_colors else (1, 0, 0, 1)
+
+				for id, bb in id_bb_s:
+					if done: break
+					if not bb.contains(x, y): continue
+
+					cc = iter(self.viewer.tcolors[id])
+					fans = self.viewer.fans[id]
+					for fan in fans:
+						c = next(cc)
+						if fan.contains(x, y):
+							self.last_fan = fan
+							self.last_fan_color = c
+							self.last_fan_rgba = c.rgba
+							c.rgba = RGBA
+							done = True
+							break
+
+			else:
+
+				for id, bb in id_bb_s:
+					c = self.viewer.bcolors[id]
+					if bb.contains(x, y):
+						c.a = .3
+					else:
+						c.a = 0
 
 		else:
 
@@ -411,6 +448,9 @@ class ViewerApp(App):
 	def __init__(self, **kk):
 		super().__init__(**kk)
 		self.button = None
+		self.last_fan = None
+		self.last_fan_color = None
+		self.last_fan_rgba = None
 
 	def build(self):
 		with open('regions.json') as file:

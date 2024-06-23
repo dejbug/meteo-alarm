@@ -372,25 +372,68 @@ def show_paths(file):
 	MyApp().run()
 
 
+def triangle_orient(A, B, C):
+	# https://www.baeldung.com/cs/check-if-point-is-in-2d-triangle
+	ABx = B[0] - A[0]
+	ABy = B[1] - A[1]
+	ACx = C[0] - A[0]
+	ACy = C[1] - A[1]
+	cp = ABx * ACy - ABy * ACx
+	return 1 if cp > 0 else -1
+
+
+def pt_in_triangle(A, B, C, p):
+	# https://www.baeldung.com/cs/check-if-point-is-in-2d-triangle
+	return 3 == abs(triangle_orient(A, B, p) + triangle_orient(B, C, p) + triangle_orient(C, A, p))
+
+
 class Fan:
 	def __init__(self, vv, ii):
+		self.bbox = None
 		self.vv = []
+
+		j = 0
 		for i in ii:
-			j = i * 4
-			v = vv[j:j+2]
-			self.vv.append(v)
+			v = vv[j:j+4]
+			self.vv.extend(v)
+			j += 4
 
 	@property
 	def triangle_count(self):
-		return len(self.vv) - 2
+		return len(self) - 2
 
 	def triangle(self, index):
-		return self.vv[index : index + 3]
+		return self.vv[index : index + 12]
 
 	@property
 	def triangles(self):
 		for i in range(self.triangle_count):
 			yield self.triangle(i)
+
+	def __len__(self):
+		return len(self.vv) >> 2
+
+	def contains(self, x, y):
+		if self.bbox and not self.bbox.contains(x, y):
+			return False
+		if len(self) == 3:
+			A = self.vv[0], self.vv[1]
+			B = self.vv[4], self.vv[5]
+			C = self.vv[8], self.vv[9]
+			return pt_in_triangle(A, B, C, (x, y))
+		else:
+			# A B C, C D A, D E A, ...
+			# A B C, A C D, A D E, ...
+			A = self.vv[0], self.vv[1]
+			offset = 0
+			for i in range(len(self) - 2):
+				# offset = i << 2
+				B = self.vv[4 + offset], self.vv[5 + offset]
+				C = self.vv[8 + offset], self.vv[9 + offset]
+				if pt_in_triangle(A, B, C, (x, y)):
+					return True
+				offset += 4
+			return False
 
 
 class Region:
