@@ -1,4 +1,4 @@
-import sys, re
+import sys, re, json
 
 import svgpathtools
 
@@ -306,7 +306,7 @@ def show_paths(file):
 			self.bg.size = self.size
 
 
-	class MeteoAlarmApp(App):
+	class MyApp(App):
 
 		@property
 		def screen(self):
@@ -369,7 +369,49 @@ def show_paths(file):
 
 			return view
 
-	MeteoAlarmApp().run()
+	MyApp().run()
+
+
+class Fan:
+	def __init__(self, vv, ii):
+		self.vv = []
+		for i in ii:
+			j = i * 4
+			v = vv[j:j+2]
+			self.vv.append(v)
+
+	@property
+	def triangle_count(self):
+		return len(self.vv) - 2
+
+	def triangle(self, index):
+		return self.vv[index : index + 3]
+
+	@property
+	def triangles(self):
+		for i in range(self.triangle_count):
+			yield self.triangle(i)
+
+
+class Region:
+	def __init__(self, id, vvv, iii, bbox):
+		self.id = id
+		self.fans = [ Fan(vv, ii) for vv, ii in zip(vvv, iii) ]
+		self.bbox = bbox
+
+	def __repr__(self):
+		return self.__class__.__name__ + str(self.__dict__)
+
+	def __len__(self):
+		return len(self.fans)
+
+	def __getitem__(self, key):
+		return self.fans[key]
+
+def load_regions(path = 'regions.json'):
+	with open(path) as file:
+		tt = json.load(file)
+		return [ Region(t['id'], t['vvv'], t['iii'], t['bbox']) for t in tt ]
 
 
 if __name__ == '__main__':
