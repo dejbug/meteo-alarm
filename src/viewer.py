@@ -386,6 +386,9 @@ class ColorControlWidget(BoxLayout):
 
 class ViewerApp(App):
 
+	def on_slider_value_change(self, slider, value):
+		self.viewer.zoom = value
+
 	def on_mouse_down(self, win, x, y, button, modifiers):
 		# print(x, y, button, modifiers)
 		if not self.button:
@@ -402,68 +405,63 @@ class ViewerApp(App):
 
 		x, y, _ = self.viewer.matrix_inverse.transform_point(x, y, 0)
 
-		if self.button: return
-
-		id_bb_s = ( ( t['id'], BBox(*t['bbox']) ) for t in self.viewer.tt )
-
-		if self.viewer.show_region_boundaries:
-
-			for id, bb in id_bb_s:
-				c = self.viewer.bcolors[id]
-				if bb.contains(x, y):
-					c.a = 0
-				else:
-					c.a = .3
-
+		if self.button:
+			return
+		elif self.viewer.show_region_boundaries:
+			self.on_hover_boundaries(x, y)
 		elif self.viewer.show_triangles:
-
-			done = False
-
-			if self.last_fan:
-				if self.last_fan.contains(x, y):
-					done = True
-				else:
-					self.last_fan = None
-					self.last_fan_color.rgba = self.last_fan_rgba
-					# self.last_fan_color = None
-					# self.last_fan_rgba = None
-
-			RGBA = (0, 0, 0, 1) if self.viewer.show_triangle_colors else (1, 0, 0, 1)
-
-			for id, bb in id_bb_s:
-				if done: break
-				if not bb.contains(x, y): continue
-
-				cc = iter(self.viewer.tcolors[id])
-				fans = self.viewer.fans[id]
-				for fan in fans:
-					c = next(cc)
-					if fan.contains(x, y):
-						self.last_fan = fan
-						self.last_fan_color = c
-						self.last_fan_rgba = c.rgba
-						c.rgba = RGBA
-						done = True
-						break
-
+			self.on_hover_triangles(x, y)
 		else:
+			self.on_hover_regions(x, y)
 
-			id = self.viewer.get_region_under_cursor(x, y)
+	def on_hover_boundaries(self, x, y):
+		for t in self.viewer.tt:
+			id = t['id']
+			bb = BBox(*t['bbox'])
+			c = self.viewer.bcolors[id]
+			if bb.contains(x, y):
+				c.a = 0
+			else:
+				c.a = .3
 
-			if self.last_region_id:
-				if self.last_region_id != id:
-					rgba = COLOR_REGION
-					self.viewer.set_region_color(self.last_region_id, rgba)
-					self.last_region_id = None
+	def on_hover_triangles(self, x, y):
+		if self.last_fan:
+			if self.last_fan.contains(x, y):
+				return
+			self.last_fan = None
+			self.last_fan_color.rgba = self.last_fan_rgba
+			# self.last_fan_color = None
+			# self.last_fan_rgba = None
 
-			self.last_region_id = id
+		id = self.viewer.get_region_under_cursor(x, y)
+		if id:
+			i = self.viewer.get_fan_index_under_cursor(id, x, y)
+			if i >= 0:
+				f = self.viewer.fans[id][i]
+				c = self.viewer.tcolors[id][i]
+				self.last_fan = f
+				self.last_fan_color = c
+				self.last_fan_rgba = c.rgba
 
-			if id:
-				rgba = COLOR_REGION_HIGHLIGHT
+				if self.viewer.show_triangle_colors:
+					c.rgba = (0, 0, 0, 1)
+				else:
+					c.rgba = (1, 0, 0, 1)
+
+	def on_hover_regions(self, x, y):
+		id = self.viewer.get_region_under_cursor(x, y)
+
+		if self.last_region_id:
+			if self.last_region_id != id:
+				rgba = COLOR_REGION
 				self.viewer.set_region_color(self.last_region_id, rgba)
+				self.last_region_id = None
 
-	def on_slider_value_change(self, slider, value):
-		self.viewer.zoom = value
+		self.last_region_id = id
+
+		if id:
+			rgba = COLOR_REGION_HIGHLIGHT
+			self.viewer.set_region_color(self.last_region_id, rgba)
 
 	def __init__(self, **kk):
 		super().__init__(**kk)
