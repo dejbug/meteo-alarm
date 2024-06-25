@@ -1,6 +1,8 @@
 
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 800
+COLOR_REGION = (.8, .8, .3, 1)
+COLOR_REGION_HIGHLIGHT = (1., .3, .3, 1)
 
 from kivy.config import Config
 Config.set('graphics', 'width', SCREEN_WIDTH)
@@ -200,7 +202,7 @@ class ViewerWidget(BoxLayout):
 				for vv, ii in zip(t['vvv'], t['iii']):
 					fans.append(regions.Fan(vv, ii))
 
-					tc.append(Color())
+					tc.append(Color(rgba = COLOR_REGION))
 					Mesh(
 						vertices = vv,
 						indices = ii,
@@ -231,20 +233,14 @@ class ViewerWidget(BoxLayout):
 			else:
 				CC = triangle_colors(self.tt, color_cb_g1)
 
-			for id, cc in self.tcolors.items():
+			for cc in self.tcolors.values():
 				for c in cc:
 					c.rgba = next(CC).rgba
 		else:
 
 			for id, cc in self.tcolors.items():
-
-				if id == 'Srem':
-					C = Color(1., .3, .3)
-				else:
-					C = Color(.8, .8, .3)
-
 				for c in cc:
-					c.rgba = C.rgba
+					c.rgba = COLOR_REGION
 
 		if self.show_region_boundaries:
 
@@ -255,6 +251,35 @@ class ViewerWidget(BoxLayout):
 
 			for k, c in self.bcolors.items():
 				c.a = 0
+
+	def get_region_under_cursor(self, x, y):
+
+		ids = self.get_regions_under_cursor(x, y)
+
+		for id in ids:
+			i = self.get_fan_index_under_cursor(id, x, y)
+			if i >= 0:
+				return id
+
+	def get_regions_under_cursor(self, x, y):
+
+		for t in self.tt:
+			bb = BBox(*t['bbox'])
+			if bb.contains(x, y):
+				yield t['id']
+
+	def get_fan_index_under_cursor(self, id, x, y):
+
+		for i, fan in enumerate(self.fans[id]):
+			if fan.contains(x, y):
+				return i
+		return -1
+
+	def set_region_color(self, id, rgba):
+
+		cc = self.tcolors[id]
+		for c in cc:
+			c.rgba = rgba
 
 
 class MySlider(Slider):
@@ -377,57 +402,65 @@ class ViewerApp(App):
 
 		x, y, _ = self.viewer.matrix_inverse.transform_point(x, y, 0)
 
-		if not self.viewer.show_region_boundaries and not self.button:
+		if self.button: return
 
-			id_bb_s = ( ( t['id'], BBox(*t['bbox']) ) for t in self.viewer.tt )
+		id_bb_s = ( ( t['id'], BBox(*t['bbox']) ) for t in self.viewer.tt )
 
-			if self.viewer.show_triangles:
+		if self.viewer.show_region_boundaries:
 
-				done = False
+			for id, bb in id_bb_s:
+				c = self.viewer.bcolors[id]
+				if bb.contains(x, y):
+					c.a = 0
+				else:
+					c.a = .3
 
-				if self.last_fan:
-					if self.last_fan.contains(x, y):
+		elif self.viewer.show_triangles:
+
+			done = False
+
+			if self.last_fan:
+				if self.last_fan.contains(x, y):
+					done = True
+				else:
+					self.last_fan = None
+					self.last_fan_color.rgba = self.last_fan_rgba
+					# self.last_fan_color = None
+					# self.last_fan_rgba = None
+
+			RGBA = (0, 0, 0, 1) if self.viewer.show_triangle_colors else (1, 0, 0, 1)
+
+			for id, bb in id_bb_s:
+				if done: break
+				if not bb.contains(x, y): continue
+
+				cc = iter(self.viewer.tcolors[id])
+				fans = self.viewer.fans[id]
+				for fan in fans:
+					c = next(cc)
+					if fan.contains(x, y):
+						self.last_fan = fan
+						self.last_fan_color = c
+						self.last_fan_rgba = c.rgba
+						c.rgba = RGBA
 						done = True
-					else:
-						self.last_fan = None
-						self.last_fan_color.rgba = self.last_fan_rgba
-						# self.last_fan_color = None
-						# self.last_fan_rgba = None
-
-				RGBA = (0, 0, 0, 1) if self.viewer.show_triangle_colors else (1, 0, 0, 1)
-
-				for id, bb in id_bb_s:
-					if done: break
-					if not bb.contains(x, y): continue
-
-					cc = iter(self.viewer.tcolors[id])
-					fans = self.viewer.fans[id]
-					for fan in fans:
-						c = next(cc)
-						if fan.contains(x, y):
-							self.last_fan = fan
-							self.last_fan_color = c
-							self.last_fan_rgba = c.rgba
-							c.rgba = RGBA
-							done = True
-							break
-
-			else:
-
-				for id, bb in id_bb_s:
-					c = self.viewer.bcolors[id]
-					if bb.contains(x, y):
-						c.a = .3
-					else:
-						c.a = 0
+						break
 
 		else:
 
-			if x < self.viewer.x: return
-			if y < self.viewer.y: return
+			id = self.viewer.get_region_under_cursor(x, y)
 
-			# self.viewer.translate.x = x - self.viewer.bbox.c[0]
-			# self.viewer.translate.y = y - self.viewer.bbox.c[1]
+			if self.last_region_id:
+				if self.last_region_id != id:
+					rgba = COLOR_REGION
+					self.viewer.set_region_color(self.last_region_id, rgba)
+					self.last_region_id = None
+
+			self.last_region_id = id
+
+			if id:
+				rgba = COLOR_REGION_HIGHLIGHT
+				self.viewer.set_region_color(self.last_region_id, rgba)
 
 	def on_slider_value_change(self, slider, value):
 		self.viewer.zoom = value
@@ -438,6 +471,7 @@ class ViewerApp(App):
 		self.last_fan = None
 		self.last_fan_color = None
 		self.last_fan_rgba = None
+		self.last_region_id = None
 
 	def build(self):
 		with open('regions.json') as file:
