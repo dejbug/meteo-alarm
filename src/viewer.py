@@ -15,15 +15,10 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
 from kivy.graphics import Color, Line, Rectangle, Mesh
-from kivy.graphics.tesselator import Tesselator
 from kivy.graphics.transformation import Matrix
+from kivy.graphics.context_instructions import PushMatrix, PopMatrix, MatrixInstruction
 
-from kivy.graphics.context_instructions import PushMatrix, PopMatrix
-from kivy.graphics.context_instructions import MatrixInstruction
-
-import sys, json
-
-import random
+import sys, json, random
 
 import regions
 
@@ -142,11 +137,11 @@ class ViewerWidget(BoxLayout):
 		dbox = BBox(0, 0, 210, 297)
 
 		self.matrix.translate(0, dbox.h, 0)
-		self.matrix.scale(1, -1, 0)
+		self.matrix.scale(1, -1, 1)
 
 		zoom = self._zoom * self.stretch_factor
 
-		self.matrix.scale(zoom, zoom, 0)
+		self.matrix.scale(zoom, zoom, 1)
 		self.matrix.translate(
 			-self.bbox.x * (zoom - 1),
 			 self.bbox.y * (zoom - 1), 0)
@@ -377,18 +372,7 @@ class ViewerApp(App):
 		x = (self.viewer.width + self.viewer.x) * me.sx
 		y = (self.viewer.height + self.viewer.y) * me.sy
 
-		# matrix = self.viewer.matrix.inverse()
-		# x, y, _ = matrix.transform_point(x, y, 0)
-
-		matrix = self.viewer.matrix
-		# print(matrix[0], matrix[5], matrix[12], matrix[13])
-		sx = 1 / (matrix[0] or  0.000000001)
-		sy = 1 / (matrix[5] or -0.000000001)
-		dx = -matrix[12]
-		dy = -matrix[13]
-
-		x = (x + dx) * sx
-		y = (y + dy) * sy
+		x, y, _ = self.viewer.matrix.inverse().transform_point(x, y, 0)
 
 		if not self.viewer.show_region_boundaries and not self.button:
 
