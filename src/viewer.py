@@ -127,8 +127,8 @@ class ViewerWidget(BoxLayout):
 		self.matrix.identity()
 
 		self.matrix.translate(
-			self.center[0] - self.bbox.w/2 - self.bbox.x,
-			self.center[1] - self.bbox.h/2 - self.bbox.y, 0)
+			self.center[0] - self.bbox.w / 2 - self.bbox.x,
+			self.center[1] - self.bbox.h / 2 - self.bbox.y, 0)
 
 		# The bbox is flush with the vertices. We need
 		#	the document size here.
