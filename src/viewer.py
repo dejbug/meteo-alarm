@@ -151,6 +151,8 @@ class ViewerWidget(BoxLayout):
 			 zoom * self.bbox.h / 2, 0)
 		self.matrix.translate(self.bbox.w / 2, -self.bbox.h / 2, 0)
 
+		self.matrix_inverse = self.matrix.inverse()
+
 		self.transformation.matrix = self.matrix
 
 	def __init__(self, tt, **kk):
@@ -163,6 +165,7 @@ class ViewerWidget(BoxLayout):
 
 		self._zoom = 1
 		self.matrix = Matrix()
+		self.matrix_inverse = self.matrix.inverse()
 		self.transformation = MatrixInstruction(matrix = self.matrix)
 
 		self.tcolors = { }
@@ -372,7 +375,7 @@ class ViewerApp(App):
 		x = (self.viewer.width + self.viewer.x) * me.sx
 		y = (self.viewer.height + self.viewer.y) * me.sy
 
-		x, y, _ = self.viewer.matrix.inverse().transform_point(x, y, 0)
+		x, y, _ = self.viewer.matrix_inverse.transform_point(x, y, 0)
 
 		if not self.viewer.show_region_boundaries and not self.button:
 
