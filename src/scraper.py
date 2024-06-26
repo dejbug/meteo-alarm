@@ -97,14 +97,26 @@ class Cache:
 
 	def fetch(self, url, maxage = None):
 		age = self.age(url)
-		if age is None or age >= maxage:
+
+		new = age is None
+		refetch = maxage is not None and maxage <= 0
+		expired = maxage is not None and age is not None and age >= maxage
+
+		# age == None or maxage != None and (maxage <= 0 or age >= maxage)
+		if new or refetch or expired:
 			text = fetch(url)
 			text = text.decode('utf8')
 			if text:
 				self.set(url, text, force = True)
 			return text
-		else:
-			sys.stderr.write('* cache hit\n')
+
+		elif age is not None:
+			sys.stderr.write('* cache hit')
+			if maxage is None:
+				sys.stderr.write(' (forced)')
+			if expired:
+				sys.stderr.write(' (expired)')
+			sys.stderr.write('\n')
 			text = self.get(url)
 			return text
 
@@ -334,14 +346,16 @@ if __name__ == '__main__':
 	print(url)
 	print('-' * 79)
 
-	text = cache.fetch(url, maxage = 3600)
+	# text = cache.fetch(url, maxage = 0)
+	# text = cache.fetch(url, maxage = 3600 * 24)
+	text = cache.fetch(url)
 	# print(text)
 	# for tag in iter_tags(text): print(tag)
 
 	rr = list(iter_regions(text))
 	assert len(rr) == 11
 
-	print('-' * 79)
-	print_regions_1(rr)
+	# print('-' * 79)
+	# print_regions_1(rr)
 	print('-' * 79)
 	print_regions_2(rr)
