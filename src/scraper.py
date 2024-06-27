@@ -3,8 +3,52 @@ import sys, os, re, time, base64, pickle, urllib.request, io, datetime
 URL = 'https://www.meteoalarm.rs/latin/meteo_alarm.php'
 
 def mkurl(dt = None):
-	dt = dt or datetime.datetime.now()
+	if dt:
+		dt = parse_dt_arg(dt)
+	else:
+		dt = datetime.datetime.now()
 	return URL + f'?ma_datum=' + dt.strftime('%Y-%m-%d')
+
+def parse_dt_arg(dt):
+	# print(f'[> \'{dt}\']')
+
+	if isinstance(dt, datetime.datetime):
+		return dt
+
+	if isinstance(dt, str):
+		# fillin = lambda old, new, _: (old // (10 ** len(new))) * 10 ** len(new) + int(new)
+		fillin = lambda old, new, n: int(f'{old:0{n}}'[:n-len(new)] + new) # is a little bit faster
+
+		# if res := parse_dt_arg_relative(dt):
+		# 	return res
+
+		# if mm := re.match(r'(?:(?:((?:\d\d)?\d?\d)-)?(\d?\d)-)?(\d?\d)', dt):
+		if mm := re.match(r'^\s*(?:(?:((?:\d\d)?\d?\d)-)?(\d?\d)-)?(\d?\d)\s*$', dt):
+			Y, M, D = mm.groups()
+			now = datetime.datetime.now()
+			Y = fillin(now.year, Y, 4) if Y else now.year
+			M = fillin(now.month, M, 2) if M else now.month
+			D = fillin(now.day, D, 2) if D else now.day
+			return datetime.datetime(year = Y, month = M, day = D)
+
+def parse_dt_arg_relative(dt):
+	# FIXME: E.g.: parse_dt_arg('365 days ago') will fail.
+
+	# FIXME: How do you sanely specify a date-range in various
+	#	units (i.e. years, months, days; i.e. hence not just in
+	#	days as required by timedelta) and still get leap years
+	#	honored?
+
+	if mm := re.match(r'.*(\s+ago\s*)$', dt):
+		dt = dt[:mm.start(1)]
+		Y, M, D = now.year, now.month, now.day
+		for m in re.finditer(r'\s*(?:and\s+)?(\d+)\s+([dmyDMY])\S*', dt):
+			v = int(m.group(1))
+			k = m.group(2).lower()
+			if k == 'y': Y = now.year - v
+			elif k == 'm': M = now.month - v
+			elif k == 'd': D = now.day - v
+		return datetime.datetime(year = Y, month = M, day = D)
 
 class Cache:
 
@@ -337,12 +381,13 @@ if __name__ == '__main__':
 	print('-' * 79)
 
 	# url = mkurl()
-	dt = datetime.datetime.now()
+	# dt = datetime.datetime.now()
 	# dt -= datetime.timedelta(days = 1)
 	# dt -= datetime.timedelta(days = 2)
 	# dt -= datetime.timedelta(days = 3)
 	# dt -= datetime.timedelta(days = 4)
-	url = mkurl(dt)
+	# url = mkurl(dt)
+	url = mkurl('2024-6-25')
 	print(url)
 	print('-' * 79)
 
