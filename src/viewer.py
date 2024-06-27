@@ -12,7 +12,7 @@ Config.set('input', 'mouse', 'mouse,disable_multitouch')
 
 from kivy.app import App
 from kivy.core.window import Window
-from kivy.properties import BooleanProperty
+from kivy.properties import BooleanProperty, DictProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.slider import Slider
@@ -22,7 +22,7 @@ from kivy.graphics.context_instructions import PushMatrix, PopMatrix, MatrixInst
 
 import sys, json, random
 
-import regions
+import regions, scraper
 
 
 color_cb_g1 = lambda a, b, r: Color(a, 0, b, mode = 'hsv')
@@ -107,6 +107,8 @@ class ViewerWidget(BoxLayout):
 
 	show_background = BooleanProperty()
 
+	warnings = DictProperty()
+
 	def on_size(self, _, size):
 		self.bg.pos = self.pos
 		self.bg.size = self.size
@@ -157,6 +159,9 @@ class ViewerWidget(BoxLayout):
 
 		self.transformation.matrix = self.matrix
 
+	def on_warnings(self, *aa):
+		scraper.print_regions_2(self.warnings.items())
+
 	def __init__(self, tt, **kk):
 		super().__init__(**kk)
 
@@ -179,7 +184,8 @@ class ViewerWidget(BoxLayout):
 			size = self.update_canvas,
 			show_triangles = self.update_canvas,
 			show_triangle_colors = self.update_canvas,
-			show_region_boundaries = self.update_canvas)
+			show_region_boundaries = self.update_canvas,
+			warnings = self.on_warnings)
 
 	def init_canvas(self, *aa):
 
@@ -236,11 +242,26 @@ class ViewerWidget(BoxLayout):
 			for cc in self.tcolors.values():
 				for c in cc:
 					c.rgba = next(CC).rgba
+
+		elif self.warnings:
+
+			for id, ww in self.warnings.items():
+				if ww:
+					highest_severity = ww[-1][-1]
+					rgba = self.warning_color(highest_severity)
+				else:
+					rgba = self.warning_color(1)
+				if rgba:
+					cc = self.tcolors[id]
+					for c in cc:
+						c.rgba = rgba
+
 		else:
 
 			for id, cc in self.tcolors.items():
 				for c in cc:
 					c.rgba = COLOR_REGION
+
 
 		if self.show_region_boundaries:
 
@@ -281,6 +302,22 @@ class ViewerWidget(BoxLayout):
 		for c in cc:
 			c.rgba = rgba
 
+	def get_region_color(self, id):
+
+		if self.warnings and id in self.warnings:
+			ww = self.warnings[id]
+			if ww:
+				highest_severity = ww[-1][-1]
+				return self.warning_color(highest_severity)
+
+		return COLOR_REGION
+
+	@classmethod
+	def warning_color(cls, lvl):
+		if lvl == 1: return 0, 1, 0, 1
+		if lvl == 2: return 1, 1, 0, 1
+		if lvl == 3: return .8, .5, 0, 1
+		if lvl == 4: return 1, 0, 0, 1
 
 class MySlider(Slider):
 	def __init__(self, **kk):
@@ -453,7 +490,7 @@ class ViewerApp(App):
 
 		if self.last_region_id:
 			if self.last_region_id != id:
-				rgba = COLOR_REGION
+				rgba = self.viewer.get_region_color(self.last_region_id)
 				self.viewer.set_region_color(self.last_region_id, rgba)
 				self.last_region_id = None
 
@@ -489,11 +526,25 @@ class ViewerApp(App):
 		view.add_widget(self.viewer)
 		view.add_widget(control)
 
+		self.show_warnings('2024-6-22')
+
 		Window.bind(on_motion = self.on_motion)
 		Window.bind(on_mouse_down = self.on_mouse_down)
 		Window.bind(on_mouse_up = self.on_mouse_up)
 
 		return view
+
+	@classmethod
+	def fetch_warnings(cls, dt = None, cache_root = '.'):
+		cache = scraper.Cache(root = cache_root)
+		url = scraper.mkurl(dt)
+		text = cache.fetch(url)
+		rr = scraper.iter_regions(text)
+		# rr = list(rr); print(rr)
+		return { scraper.tab(r[0], ascii = True) : r[1] for r in rr }
+
+	def show_warnings(self, dt = None):
+		self.viewer.warnings = self.fetch_warnings(dt)
 
 if __name__ == '__main__':
 	ViewerApp().run()

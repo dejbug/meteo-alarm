@@ -206,16 +206,16 @@ def iter_tags(text):
 				assert typ[0] == 'l'
 				break
 
-def tab(text):
-	if text == 'bc': return 'Bačka'
+def tab(text, ascii = True):
+	if text == 'bc': return 'Backa' if ascii else 'Bačka'
 	if text == 'ba': return 'Banat'
 	if text == 'sr': return 'Srem'
 	if text == 'bg': return 'Beograd'
 	if text == 'zs': return 'Zapadna' # + ' Srbija'
-	if text == 'su': return 'Šumadija'
+	if text == 'su': return 'Sumadija' if ascii else 'Šumadija'
 	if text == 'po': return 'Pomoravlje'
-	if text == 'is': return 'Istočna' # + ' Srbija'
-	if text == 'ji': return 'Jugoistočna' # + ' Srbija'
+	if text == 'is': return 'Istocna' if ascii else 'Istočna' # + ' Srbija'
+	if text == 'ji': return 'Jugoistocna' if ascii else 'Jugoistočna' # + ' Srbija'
 	if text == 'jz': return 'Jugozapadna' # + ' Srbija'
 	if text == 'km': return 'Kosovo' # + ' i Metohija'
 
