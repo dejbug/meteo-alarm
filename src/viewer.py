@@ -274,50 +274,42 @@ class ViewerWidget(BoxLayout):
 				c.a = 0
 
 	def get_region_under_cursor(self, x, y):
-
 		ids = self.get_regions_under_cursor(x, y)
-
 		for id in ids:
 			i = self.get_fan_index_under_cursor(id, x, y)
 			if i >= 0:
 				return id
 
 	def get_regions_under_cursor(self, x, y):
-
 		for t in self.tt:
 			bb = BBox(*t['bbox'])
 			if bb.contains(x, y):
 				yield t['id']
 
 	def get_fan_index_under_cursor(self, id, x, y):
-
 		for i, fan in enumerate(self.fans[id]):
 			if fan.contains(x, y):
 				return i
 		return -1
 
 	def set_region_color(self, id, rgba):
-
 		cc = self.tcolors[id]
 		for c in cc:
 			c.rgba = rgba
 
 	def get_region_color(self, id):
-
 		if self.warnings and id in self.warnings:
 			ww = self.warnings[id]
-			if ww:
-				highest_severity = ww[-1][-1]
-				return self.warning_color(highest_severity)
-
+			highest_severity = ww[-1][-1] if ww else 1
+			return self.warning_color(highest_severity)
 		return COLOR_REGION
 
 	@classmethod
 	def warning_color(cls, lvl):
-		if lvl == 1: return 0, 1, 0, 1
-		if lvl == 2: return 1, 1, 0, 1
-		if lvl == 3: return .8, .5, 0, 1
-		if lvl == 4: return 1, 0, 0, 1
+		if lvl == 1: return 0, 1,  0, 1
+		if lvl == 2: return 1, 1,  0, 1
+		if lvl == 3: return 1, .5, 0, 1
+		if lvl == 4: return 1, 0,  0, 1
 
 class MySlider(Slider):
 	def __init__(self, **kk):
@@ -492,13 +484,12 @@ class ViewerApp(App):
 			if self.last_region_id != id:
 				rgba = self.viewer.get_region_color(self.last_region_id)
 				self.viewer.set_region_color(self.last_region_id, rgba)
-				self.last_region_id = None
+				# self.last_region_id = None
 
 		self.last_region_id = id
 
 		if id:
-			rgba = COLOR_REGION_HIGHLIGHT
-			self.viewer.set_region_color(self.last_region_id, rgba)
+			self.viewer.set_region_color(id, COLOR_REGION_HIGHLIGHT)
 
 	def __init__(self, **kk):
 		super().__init__(**kk)
@@ -526,7 +517,7 @@ class ViewerApp(App):
 		view.add_widget(self.viewer)
 		view.add_widget(control)
 
-		self.show_warnings('2024-6-22')
+		self.show_warnings('2024-7-2')
 
 		Window.bind(on_motion = self.on_motion)
 		Window.bind(on_mouse_down = self.on_mouse_down)

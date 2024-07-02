@@ -387,7 +387,8 @@ if __name__ == '__main__':
 	# dt -= datetime.timedelta(days = 3)
 	# dt -= datetime.timedelta(days = 4)
 	# url = mkurl(dt)
-	url = mkurl('2024-6-25')
+	# url = mkurl('2024-6-25')
+	url = mkurl('2024-7-2')
 	print(url)
 	print('-' * 79)
 
