@@ -1,2 +1,3 @@
 *.pyc
 *.pickle
+/src/img/
