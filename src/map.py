@@ -77,6 +77,37 @@ class WarningsFetcher(threading.Thread):
 			return { r[0] : r[1] for r in rr }
 
 
+class Refresher:
+
+	def __init__(self, view):
+		assert isinstance(view, MapView)
+		self.view = view
+		self.fetcher = None
+		self.timer = None
+
+	def start(self):
+		self.fetcher = WarningsFetcher(self.view)
+		self.fetcher.start()
+		self.timer = Clock.schedule_interval(self.on_timer, 0.1)
+
+	def cancel(self):
+		if self.fetcher:
+			self.fetcher.cancel()
+			self.fetcher = None
+		if self.timer:
+			self.timer.cancel()
+			self.timer = None
+
+	def on_timer(self, *aa):
+		if self.fetcher:
+			if self.view.status != self.fetcher.status:
+				self.view.status = self.fetcher.status
+			if self.fetcher.warnings:
+				self.view.warnings = self.fetcher.warnings
+			if self.fetcher.status == '':
+				self.cancel()
+
+
 class MapImages:
 
 	RIDS = ['ba', 'bc', 'bg', 'is', 'ji', 'jz', 'km', 'po', 'sr', 'su', 'zs']
@@ -136,37 +167,6 @@ class GestureWidget(Widget):
 
 	def on_refresh_gesture(self, match):
 		pass
-
-
-class Refresher:
-
-	def __init__(self, view):
-		assert isinstance(view, MapView)
-		self.view = view
-		self.fetcher = None
-		self.clock = None
-
-	def start(self):
-		self.fetcher = WarningsFetcher(self.view)
-		self.fetcher.start()
-		self.clock = Clock.schedule_interval(self.on_timer, 0.1)
-
-	def cancel(self):
-		if self.fetcher:
-			self.fetcher.cancel()
-			self.fetcher = None
-		if self.clock:
-			self.clock.cancel()
-			self.clock = None
-
-	def on_timer(self, *aa):
-		if self.fetcher:
-			if self.view.status != self.fetcher.status:
-				self.view.status = self.fetcher.status
-			if self.fetcher.warnings:
-				self.view.warnings = self.fetcher.warnings
-			if self.fetcher.status == '':
-				self.cancel()
 
 
 class MapView(GestureWidget):
