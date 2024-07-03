@@ -1,16 +1,80 @@
+import kivy
+kivy.require('2.3.0')
+
+from kivy.config import Config
+Config.set('graphics', 'width', 400)
+Config.set('graphics', 'height', 600)
+Config.set('input', 'mouse', 'mouse,disable_multitouch')
+
 from kivy.app import App
+from kivy.core.window import Window
 from kivy.uix.widget import Widget
-from kivy.graphics import Color, Rectangle
-from kivy.uix.boxlayout import BoxLayout
-from kivy.properties import DictProperty
-# from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.label import Label
 # from kivy.uix.image import Image
+from kivy.uix.floatlayout import FloatLayout
+# from kivy.uix.boxlayout import BoxLayout
+from kivy.graphics import Color, Rectangle
+from kivy.properties import StringProperty, DictProperty
+from kivy.clock import Clock
 
 from kivy.gesture import GestureDatabase, Gesture
 
-import os
+import os, time, threading, urllib.error
 
 import scraper
+
+
+class WarningsFetcher(threading.Thread):
+
+	def __init__(self, widget, cache_root = '.'):
+		super().__init__()
+		self.daemon = True
+		self.widget = widget
+		self.cache_root = cache_root
+		self.warnings = None
+		self.status = ''
+		self.ticker = threading.Timer(1.0, self.tick)
+
+	def cancel(self):
+		self.widget = None
+		self.ticker.cancel()
+
+	def run(self):
+		self.warnings = None
+		# time.sleep(.1)
+		self.status = 'fetching'
+		self.ticker.start()
+		self.warnings = self.fetch_warnings(cache_root = self.cache_root)
+		self.ticker.cancel()
+		if self.warnings:
+			self.status = 'ok'
+		else:
+			self.status = 'failed'
+		time.sleep(1)
+		self.status = ''
+
+	def tick(self):
+		if self.widget:
+			if self.status == 'fetching':
+				self.status = 'fetching.'
+			elif self.status == 'fetching.':
+				self.status = 'fetching..'
+			elif self.status == 'fetching..':
+				self.status = 'fetching...'
+			elif self.status == 'fetching...':
+				self.status = 'fetching.'
+		self.ticker = threading.Timer(1.0, self.tick)
+		self.ticker.start()
+
+	@classmethod
+	def fetch_warnings(cls, dt = None, cache_root = '.'):
+		cache = scraper.Cache(root = cache_root)
+		url = scraper.mkurl(dt)
+		text = cache.fetch(url, maxage = 3600)
+		if text:
+			rr = scraper.iter_regions(text)
+			# rr = list(rr); print(rr)
+			return { r[0] : r[1] for r in rr }
 
 
 class MapImages:
@@ -67,7 +131,6 @@ class GestureWidget(Widget):
 		super().on_touch_up(touch)
 
 	def on_gesture(self, match):
-		print('gesture')
 		if match[1].name == 'refresh':
 			self.on_refresh_gesture(match)
 
@@ -75,8 +138,40 @@ class GestureWidget(Widget):
 		pass
 
 
+class Refresher:
+
+	def __init__(self, view):
+		assert isinstance(view, MapView)
+		self.view = view
+		self.fetcher = None
+		self.clock = None
+
+	def start(self):
+		self.fetcher = WarningsFetcher(self.view)
+		self.fetcher.start()
+		self.clock = Clock.schedule_interval(self.on_timer, 0.1)
+
+	def cancel(self):
+		if self.fetcher:
+			self.fetcher.cancel()
+			self.fetcher = None
+		if self.clock:
+			self.clock.cancel()
+			self.clock = None
+
+	def on_timer(self, *aa):
+		if self.fetcher:
+			if self.view.status != self.fetcher.status:
+				self.view.status = self.fetcher.status
+			if self.fetcher.warnings:
+				self.view.warnings = self.fetcher.warnings
+			if self.fetcher.status == '':
+				self.cancel()
+
+
 class MapView(GestureWidget):
 
+	status = StringProperty()
 	warnings = DictProperty()
 
 	def __init__(self, **kk):
@@ -102,12 +197,20 @@ class MapView(GestureWidget):
 				self.region_colors[id] = Color(1, 1, 1, 1)
 				self.regions[id] = Rectangle(source = path, pos = self.pos, size = self.size)
 
+		# self.register_event_type('on_refresh_ok')
+
 		self.bind(
 			pos = self.on_pos_change,
 			size = self.on_size_change,
 			warnings = self.on_warnings_change)
 
-		self.warnings = self.fetch_warnings()
+		Window.bind(on_mouse_down = self.on_mouse_down)
+
+		self.refresher = Refresher(self)
+		self.refresher.start()
+
+	# def on_refresh_ok(self, *aa):
+	# 	self.warnings = self.fetcher.warnings
 
 	def on_warnings_change(self, *aa):
 		for id, ww in self.warnings.items():
@@ -128,6 +231,9 @@ class MapView(GestureWidget):
 			r.pos = (self.pos[0], self.size[1] - h)
 			r.size = (w, h)
 
+	def on_mouse_down(self, win, x, y, button, modifiers):
+		print(x, y, button, modifiers)
+
 	def set_region_color(self, id, rgba):
 		self.region_colors[id].rgba = rgba
 
@@ -147,17 +253,9 @@ class MapView(GestureWidget):
 
 		return w, h
 
-	@classmethod
-	def fetch_warnings(cls, dt = None, cache_root = '.'):
-		cache = scraper.Cache(root = cache_root)
-		url = scraper.mkurl(dt)
-		text = cache.fetch(url, maxage = 3600)
-		rr = scraper.iter_regions(text)
-		# rr = list(rr); print(rr)
-		return { r[0] : r[1] for r in rr }
-
 	def on_refresh_gesture(self, match):
-		self.warnings = self.fetch_warnings()
+		self.refresher.cancel()
+		self.refresher.start()
 
 
 class MapApp(App):
@@ -166,8 +264,19 @@ class MapApp(App):
 		super().__init__(**kk)
 
 	def build(self):
+		self.info = Label(text = '', pos_hint = {'right': .9, 'top': 1}, size_hint = (.1, .1))
 		self.view = MapView()
-		return self.view
+
+		layout = FloatLayout()
+		layout.add_widget(self.info)
+		layout.add_widget(self.view)
+
+		self.view.bind(status = self.on_view_status_change)
+
+		return layout
+
+	def on_view_status_change(self, widget, text):
+		self.info.text = text
 
 
 if __name__ == '__main__':

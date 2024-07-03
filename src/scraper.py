@@ -1,4 +1,4 @@
-import sys, os, re, time, base64, pickle, urllib.request, io, datetime
+import traceback, sys, os, re, time, base64, pickle, urllib.request, io, datetime
 
 URL = 'https://www.meteoalarm.rs/latin/meteo_alarm.php'
 
@@ -149,8 +149,8 @@ class Cache:
 		# age == None or maxage != None and (maxage <= 0 or age >= maxage)
 		if new or refetch or expired:
 			text = fetch(url)
-			text = text.decode('utf8')
 			if text:
+				text = text.decode('utf8')
 				self.set(url, text, force = True)
 			return text
 
@@ -164,12 +164,16 @@ class Cache:
 			text = self.get(url)
 			return text
 
-def fetch(url = URL):
-	with urllib.request.urlopen(url) as page:
-		# print(page.url, page.status)
-		# print(page.headers)
-		if page.status == 200:
-			return page.read()
+def fetch(url = URL, log = sys.stderr):
+	try:
+		with urllib.request.urlopen(url) as page:
+			# print(page.url, page.status)
+			# print(page.headers)
+			if page.status == 200:
+				return page.read()
+	except urllib.error.URLError as e:
+		if log:
+			traceback.print_exception(e, file = log, chain = False)
 
 def iter_tags(text):
 	regex = re.compile(r'class="([a-z]+)_tab|/mapa/(w|l)(?:type|vlbox)([0-9])\.gif')
@@ -388,7 +392,7 @@ if __name__ == '__main__':
 	# dt -= datetime.timedelta(days = 4)
 	# url = mkurl(dt)
 	# url = mkurl('2024-6-25')
-	url = mkurl('2024-7-2')
+	url = mkurl('2024-7-1')
 	print(url)
 	print('-' * 79)
 
@@ -398,10 +402,12 @@ if __name__ == '__main__':
 	# print(text)
 	# for tag in iter_tags(text): print(tag)
 
-	rr = list(iter_regions(text))
-	assert len(rr) == 11
+	if text:
 
-	# print('-' * 79)
-	# print_regions_1(rr)
-	print('-' * 79)
-	print_regions_2(rr)
+		rr = list(iter_regions(text))
+		assert len(rr) == 11
+
+		# print('-' * 79)
+		# print_regions_1(rr)
+		print('-' * 79)
+		print_regions_2(rr)
