@@ -69,7 +69,7 @@ class WarningsFetcher(threading.Thread):
 	@classmethod
 	def fetch_warnings(cls, dt = None, cache_root = '.'):
 		cache = scraper.Cache(root = cache_root)
-		url = scraper.mkurl(dt)
+		url = scraper.mkurl('2024-6-12')
 		text = cache.fetch(url, maxage = 3600)
 		if text:
 			rr = scraper.iter_regions(text)
@@ -86,9 +86,13 @@ class Refresher:
 		self.timer = None
 
 	def start(self):
+		if self.fetcher:
+			print('Refresher: already running')
+			return
+		print('Refresher: starting')
 		self.fetcher = WarningsFetcher(self.view)
 		self.fetcher.start()
-		self.timer = Clock.schedule_interval(self.on_timer, 0.1)
+		self.timer = Clock.schedule_interval(self.on_timer, 0.25)
 
 	def cancel(self):
 		if self.fetcher:
@@ -99,6 +103,7 @@ class Refresher:
 			self.timer = None
 
 	def on_timer(self, *aa):
+		print('tick', aa)
 		if self.fetcher:
 			if self.view.status != self.fetcher.status:
 				self.view.status = self.fetcher.status
@@ -254,7 +259,7 @@ class MapView(GestureWidget):
 		return w, h
 
 	def on_refresh_gesture(self, match):
-		self.refresher.cancel()
+		# self.refresher.cancel()
 		self.refresher.start()
 
 
