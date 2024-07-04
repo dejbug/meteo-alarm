@@ -27,7 +27,7 @@ import os, time, threading, urllib.error
 import scraper
 
 
-class WarningsFetcher2:
+class WarningsFetcher:
 
 	STATE_NONE, STATE_FETCHING, STATE_OK, STATE_FAIL = range(4)
 
@@ -85,7 +85,7 @@ class WarningsFetcher2:
 		return url, rr
 
 
-class Refresher2:
+class Refresher:
 
 	MAXAGE = 3600
 
@@ -115,7 +115,7 @@ class Refresher2:
 				return True
 
 		print('Refresher: starting')
-		self.fetcher = WarningsFetcher2()
+		self.fetcher = WarningsFetcher()
 		self.fetcher.start()
 		self.timer = Clock.schedule_interval(self.on_timer, 0.25)
 		return True
@@ -141,97 +141,6 @@ class Refresher2:
 				self.store.put('warnings', warnings = self.fetcher.warnings, url = self.fetcher.url, timestamp = time.time())
 			if not self.fetcher.fetching:
 				self.fetcher = None
-
-
-class WarningsFetcher(threading.Thread):
-
-	def __init__(self, widget, cache_root = '.'):
-		super().__init__()
-		self.daemon = True
-		self.widget = widget
-		self.cache_root = cache_root
-		self.warnings = None
-		self.status = ''
-		self.ticker = threading.Timer(1.0, self.tick)
-
-	def cancel(self):
-		self.widget = None
-		self.ticker.cancel()
-
-	def run(self):
-		self.warnings = None
-		# time.sleep(.1)
-		self.status = 'fetching'
-		self.ticker.start()
-		self.warnings = self.fetch_warnings(cache_root = self.cache_root)
-		self.ticker.cancel()
-		if self.warnings:
-			self.status = 'ok'
-		else:
-			self.status = 'failed'
-		time.sleep(1)
-		self.status = ''
-
-	def tick(self):
-		if self.widget:
-			if self.status == 'fetching':
-				self.status = 'fetching.'
-			elif self.status == 'fetching.':
-				self.status = 'fetching..'
-			elif self.status == 'fetching..':
-				self.status = 'fetching...'
-			elif self.status == 'fetching...':
-				self.status = 'fetching.'
-		self.ticker = threading.Timer(1.0, self.tick)
-		self.ticker.start()
-
-	@classmethod
-	def fetch_warnings(cls, dt = None, cache_root = '.'):
-		cache = scraper.Cache(root = cache_root)
-		# url = scraper.mkurl('2024-6-12')
-		# text = cache.fetch(url, maxage = 3600)
-		url = scraper.mkurl()
-		text = cache.fetch(url, maxage = 0)
-		if text:
-			rr = scraper.iter_regions(text)
-			# rr = list(rr); print(rr)
-			return { r[0] : r[1] for r in rr }
-
-
-class Refresher:
-
-	def __init__(self, view):
-		assert isinstance(view, MapView)
-		self.view = view
-		self.fetcher = None
-		self.timer = None
-
-	def start(self):
-		if self.fetcher:
-			print('Refresher: already running')
-			return
-		print('Refresher: starting')
-		self.fetcher = WarningsFetcher(self.view)
-		self.fetcher.start()
-		self.timer = Clock.schedule_interval(self.on_timer, 0.25)
-
-	def cancel(self):
-		if self.fetcher:
-			self.fetcher.cancel()
-			self.fetcher = None
-		if self.timer:
-			self.timer.cancel()
-			self.timer = None
-
-	def on_timer(self, *aa):
-		print('tick', aa)
-		if self.fetcher:
-			if self.view.status != self.fetcher.status:
-				self.view.status = self.fetcher.status
-			if self.fetcher.warnings:
-				self.view.warnings = self.fetcher.warnings
-			if self.fetcher.status == '':
-				self.cancel()
 
 
 class MapImages:
@@ -332,7 +241,7 @@ class MapView(GestureWidget):
 
 		# Window.bind(on_mouse_down = self.on_mouse_down)
 
-		self.refresher = Refresher2(self)
+		self.refresher = Refresher(self)
 		self.refresher.start()
 
 	# def on_refresh_ok(self, *aa):
