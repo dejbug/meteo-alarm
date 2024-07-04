@@ -24,8 +24,6 @@ from kivy.storage.jsonstore import JsonStore
 
 import sys, os, re, time, datetime, threading
 
-import scraper
-
 from Warnings import Warnings
 
 
