@@ -1,4 +1,4 @@
-__version__ = '1.0.0'
+__version__ = '1.0.7'
 
 import kivy
 kivy.require('2.3.0')
@@ -8,6 +8,8 @@ if kivy.platform != 'android':
 	Config.set('graphics', 'width', 400)
 	Config.set('graphics', 'height', 600)
 	Config.set('input', 'mouse', 'mouse,disable_multitouch')
+else:
+	Config.set('graphics', 'multisamples', '0')
 
 from kivy.app import App
 # from kivy.core.window import Window
@@ -49,7 +51,7 @@ class AsyncWarningsFetcher:
 		return True
 
 	def run(self, dt = None):
-		self.warnings = Warnings.fetch(dt)
+		self.warnings = Warnings.fetch(dt, log = sys.stderr)
 		self.runner = None
 
 
@@ -218,10 +220,11 @@ class MapView(GestureWidget):
 		print('AsyncRefresher: starting')
 
 	def on_fetch_tick(self, seconds):
-		print(f'AsyncRefresher: tick {seconds}')
+		print(f'AsyncRefresher: ticks {seconds}')
 
 	def on_fetch_result(self, warnings, cached):
 		print('AsyncRefresher: result', f'({warnings.age if warnings and cached else None})')
+		print(warnings, cached)
 		if warnings:
 			self.warnings = warnings
 

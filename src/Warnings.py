@@ -2,6 +2,8 @@ from kivy.storage.jsonstore import JsonStore
 
 import sys, os, re, time, datetime, urllib.request, urllib.error, traceback
 
+import certifi
+
 
 URL = 'https://www.meteoalarm.rs/latin/meteo_alarm.php'
 
@@ -90,9 +92,10 @@ def parse_dt_arg(dt):
 
 def fetch(url, log = sys.stderr):
 	try:
-		with urllib.request.urlopen(url) as page:
-			# print(page.url, page.status)
-			# print(page.headers)
+		with urllib.request.urlopen(url, cafile = certifi.where()) as page:
+			if log:
+				log.write(f'{page.status} {page.url}\n')
+				log.write(f'{page.headers}')
 			if page.status == 200:
 				return page.read()
 	except urllib.error.URLError as e:
