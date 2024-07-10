@@ -1,6 +1,9 @@
+*.swp
 *.pyc
 *.pickle
 .buildozer/
-/build/
 /src/img/
 store.json
+/build/**
+!/build/*.sh
+!/build/*.spec
